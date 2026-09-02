@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#071a2b" />
+    <title>학생 탐구 지도 — 경계선</title>
+    <link rel="stylesheet" href="./vendor/leaflet.css" />
+    <link rel="stylesheet" href="./vendor/leaflet-draw.css" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body class="app-page">
+    <header class="app-header">
+      <a class="brand compact" href="./index.html"><span class="brand-mark">⌁</span><span>경계선</span></a>
+      <nav class="tabs" aria-label="학생 활동 탭">
+        <button class="tab is-active" data-tab="map" type="button"><span>01</span> 탐구 지도</button>
+        <button class="tab is-locked" data-tab="principle" type="button"><span>02</span> 왜 이곳에서?</button>
+      </nav>
+      <div class="session-pill"><small>수업</small><b id="header-code">------</b><span id="header-group">모둠 선택 전</span></div>
+    </header>
+
+    <main class="student-shell">
+      <section id="map-tab" class="tab-panel map-workspace is-active">
+        <div id="student-map" class="map-canvas" aria-label="지진과 화산 탐구 지도"></div>
+
+        <aside class="map-sidebar">
+          <div class="phase-block">
+            <span id="phase-number" class="phase-number">01</span>
+            <div><small>현재 단계</small><h1 id="phase-title">지진의 흔적 관찰</h1></div>
+          </div>
+          <p id="phase-guide" class="phase-guide">점들이 길게 이어지는 곳과 비어 있는 곳을 찾아보세요.</p>
+
+          <div class="layer-panel">
+            <p class="panel-label">DATA LAYERS</p>
+            <label class="layer-toggle">
+              <input id="earthquake-toggle" type="checkbox" checked />
+              <span class="legend-dot quake"></span>
+              <span><b>지진</b><small id="quake-count">자료 불러오는 중</small></span>
+              <i></i>
+            </label>
+            <label class="layer-toggle">
+              <input id="volcano-toggle" type="checkbox" />
+              <span class="legend-triangle"></span>
+              <span><b>화산</b><small id="volcano-count">자료 불러오는 중</small></span>
+              <i></i>
+            </label>
+            <label id="korea-detail-row" class="layer-toggle is-hidden">
+              <input id="korea-detail-toggle" type="checkbox" />
+              <span class="legend-dot detail"></span>
+              <span><b>한반도 상세 지진</b><small>기준이 다른 확대 자료</small></span>
+              <i></i>
+            </label>
+          </div>
+
+          <div class="drawing-help">
+            <p class="panel-label">BOUNDARY SKETCH</p>
+            <p>지도 왼쪽의 <b>선 그리기 도구</b>를 눌러 점을 이어 보세요. 선은 여러 조각으로 그려도 됩니다.</p>
+            <div class="mini-actions">
+              <button id="reset-view" class="button button-ghost" type="button">세계 지도</button>
+              <button id="east-asia-view" class="button button-ghost" type="button">일본·한반도</button>
+            </div>
+          </div>
+
+          <form id="submission-form" class="submission-form">
+            <label for="evidence">가장 확실한 경계와 그 근거</label>
+            <textarea id="evidence" maxlength="180" placeholder="예: 남아메리카 서쪽에서 지진과 화산이 띠 모양으로 겹쳐 보인다." required></textarea>
+
+            <div id="revision-wrap" class="is-hidden">
+              <label for="revision">원리를 확인한 뒤 바꾼 점</label>
+              <textarea id="revision" maxlength="180" placeholder="바꾸지 않았다면 그 이유를 적어 주세요."></textarea>
+            </div>
+
+            <fieldset>
+              <legend>우리 모둠의 확신</legend>
+              <div class="segmented">
+                <label><input type="radio" name="confidence" value="낮음" /><span>낮음</span></label>
+                <label><input type="radio" name="confidence" value="보통" checked /><span>보통</span></label>
+                <label><input type="radio" name="confidence" value="높음" /><span>높음</span></label>
+              </div>
+            </fieldset>
+
+            <button id="submit-boundary" class="button button-accent full" type="submit">1차 경계선 제출</button>
+            <p id="submit-status" class="form-status" role="status"></p>
+          </form>
+        </aside>
+
+        <section id="application-card" class="application-card is-hidden" aria-live="polite">
+          <button class="close-card" type="button" aria-label="적용 카드 닫기">×</button>
+          <p class="card-label">APPLY · 동아시아</p>
+          <h2>일본과 한반도는 어떻게 다를까?</h2>
+          <form id="application-form">
+            <div class="quick-question">
+              <p>1. 같은 기준에서 지진과 화산이 더 조밀한 곳</p>
+              <div class="choice-row" data-name="density"><button type="button">일본</button><button type="button">한반도</button><button type="button">비슷함</button></div>
+            </div>
+            <div class="quick-question">
+              <p>2. 주요 판 경계에 더 가까운 곳</p>
+              <div class="choice-row" data-name="near"><button type="button">일본</button><button type="button">한반도</button><button type="button">판단하기 어려움</button></div>
+            </div>
+            <div class="quick-question">
+              <p>3. “한반도에는 지진이 발생하지 않는다.”</p>
+              <div class="choice-row" data-name="intraplate"><button type="button">맞음</button><button type="button">틀림</button></div>
+            </div>
+            <button class="button button-primary full" type="submit">적용 답안 저장</button>
+            <p id="application-status" class="form-status"></p>
+          </form>
+        </section>
+      </section>
+
+      <section id="principle-tab" class="tab-panel principle-page">
+        <div id="principle-lock" class="principle-lock">
+          <div class="lock-orbit"><span>⌁</span></div>
+          <p class="card-label">LOCKED</p>
+          <h1>먼저 경계선을 제출해 주세요.</h1>
+          <p>자료만으로 충분히 관찰한 뒤 원리를 확인하면, 처음 생각이 어떻게 달라지는지 비교할 수 있어요.</p>
+          <button class="button button-primary" data-go-map type="button">탐구 지도로 돌아가기</button>
+        </div>
+
+        <div id="principle-content" class="principle-content is-hidden">
+          <header class="principle-hero">
+            <p class="kicker"><span></span> 판이 움직일 때 생기는 일</p>
+            <h1>왜 경계 가까이에<br />흔적이 모일까?</h1>
+            <p>지진과 화산은 같은 장소에 나타나기도 하지만, 만들어지는 과정은 서로 다릅니다.</p>
+          </header>
+
+          <article class="principle-story quake-story">
+            <div class="story-copy">
+              <span class="story-index">01 · EARTHQUAKE</span>
+              <h2>걸리고, 쌓이고,<br />갑자기 움직인다.</h2>
+              <p>판은 계속 움직이지만 맞닿은 암석은 마찰 때문에 쉽게 움직이지 못합니다. 힘이 한계를 넘으면 암석이 갑자기 끊어지거나 미끄러지고, 그 진동이 지진으로 퍼집니다.</p>
+              <div class="step-line"><span>판의 이동</span><i>→</i><span>힘 축적</span><i>→</i><span>갑작스러운 움직임</span><i>→</i><span>진동</span></div>
+            </div>
+            <div class="stress-visual" aria-label="암석에 힘이 쌓였다가 풀리는 모식도">
+              <div class="rock left-rock"><b></b><b></b><b></b></div>
+              <div class="fault-flash"></div>
+              <div class="rock right-rock"><b></b><b></b><b></b></div>
+              <span class="force left-force">→</span><span class="force right-force">←</span>
+            </div>
+          </article>
+
+          <article class="principle-story volcano-story">
+            <div class="magma-visual" aria-label="마그마가 상승하는 모식도">
+              <div class="crust-line"></div><div class="volcano-cone"></div><div class="magma-column"></div><div class="magma-pool"></div>
+            </div>
+            <div class="story-copy">
+              <span class="story-index">02 · VOLCANO</span>
+              <h2>녹은 암석이<br />위로 올라온다.</h2>
+              <p>판이 움직이는 일부 경계에서는 뜨거운 맨틀 물질이 올라오거나 주변 암석이 더 쉽게 녹습니다. 가벼운 마그마가 지표까지 올라오면 화산 활동이 일어납니다.</p>
+              <div class="important-note"><b>기억하세요</b><span>마그마가 만들어지기 어려운 경계도 있어요. 모든 판 경계에 화산이 있는 것은 아닙니다.</span></div>
+            </div>
+          </article>
+
+          <section class="check-question">
+            <p class="card-label">THINK TOGETHER</p>
+            <h2>지진은 많지만 화산이 없는 경계가 있을 수 있는 까닭은?</h2>
+            <p>모둠원과 이야기한 뒤, 지도로 돌아가 처음 그린 선을 다시 살펴보세요.</p>
+            <button class="button button-accent" data-go-map type="button">경계선 다시 확인하기 →</button>
+          </section>
+        </div>
+      </section>
+    </main>
+
+    <dialog id="group-dialog" class="group-dialog">
+      <form method="dialog">
+        <p class="card-label">JOIN CLASS</p>
+        <h2><span id="dialog-code">------</span> 수업</h2>
+        <p>우리 모둠을 선택하세요. 한 모둠은 한 대의 노트북에서 참여합니다.</p>
+        <div id="group-grid" class="group-grid"></div>
+        <button id="join-group" class="button button-primary full" type="button" value="default" disabled>선택한 모둠으로 시작</button>
+        <a href="./index.html" class="dialog-back">다른 코드 입력</a>
+      </form>
+    </dialog>
+
+    <div id="toast" class="toast" role="status"></div>
+    <script src="./vendor/leaflet.js"></script>
+    <script src="./vendor/leaflet-draw.js"></script>
+    <script type="module" src="./student.js"></script>
+  </body>
+</html>

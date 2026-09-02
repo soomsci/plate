@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#071a2b" />
+    <title>교사 대시보드 — 경계선</title>
+    <link rel="stylesheet" href="./vendor/leaflet.css" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body class="teacher-page">
+    <header class="teacher-header">
+      <a class="brand compact" href="./index.html"><span class="brand-mark">⌁</span><span>경계선</span></a>
+      <div class="teacher-title"><span>TEACHER DASHBOARD</span><h1>판의 경계 탐구</h1></div>
+      <div class="mode-badge"><span id="cloud-dot"></span><b id="backend-mode">연결 확인 중</b></div>
+    </header>
+
+    <main class="teacher-shell">
+      <aside class="teacher-sidebar">
+        <section class="session-card">
+          <p class="panel-label">CLASS CODE</p>
+          <div id="session-empty">
+            <h2>새로운 탐구 수업</h2>
+            <p>수업을 열면 학생들이 입력할 코드가 만들어집니다.</p>
+            <button id="create-session" class="button button-accent full" type="button">수업 코드 만들기</button>
+          </div>
+          <div id="session-active" class="is-hidden">
+            <button id="copy-code" class="class-code" type="button"><b id="class-code">------</b><span>눌러서 복사</span></button>
+            <div class="join-url"><span id="join-url">주소 준비 중</span><button id="copy-url" type="button">복사</button></div>
+          </div>
+        </section>
+
+        <section class="progress-card">
+          <div class="section-heading">
+            <div><p class="panel-label">LIVE STATUS</p><h2>모둠 제출 현황</h2></div>
+            <div class="group-summary"><b id="submitted-total">0/6</b><button id="reset-submissions" type="button" disabled>전체 초기화</button></div>
+          </div>
+          <div id="group-status-list" class="group-status-list"></div>
+        </section>
+
+        <section class="control-card">
+          <p class="panel-label">LESSON CONTROL</p>
+          <div class="control-stack">
+            <button data-phase="compare" class="control-button" type="button"><span>1</span><div><b>제출 마감·모둠 비교</b><small>학생 편집을 멈추고 선을 겹칩니다.</small></div></button>
+            <button data-phase="reveal" class="control-button" type="button"><span>2</span><div><b>실제 경계 공개</b><small>전 세계 결과와 정답을 비교합니다.</small></div></button>
+            <button data-phase="eastAsia" data-boundary="false" class="control-button" type="button"><span>3</span><div><b>일본·한반도 적용</b><small>확대하고 경계는 다시 숨깁니다.</small></div></button>
+            <button id="east-boundary" class="control-button secondary" type="button"><span>4</span><div><b>동아시아 경계 확인</b><small>일본과 한반도의 거리를 비교합니다.</small></div></button>
+            <button id="korea-detail" class="control-button secondary" type="button"><span>5</span><div><b>한반도 상세 자료</b><small>작은 지진을 추가로 표시합니다.</small></div></button>
+          </div>
+        </section>
+      </aside>
+
+      <section class="dashboard-map-area">
+        <div id="teacher-map" class="map-canvas"></div>
+        <div class="dashboard-topbar">
+          <div><span class="live-dot"></span><b id="phase-label">수업 준비</b></div>
+          <div class="map-actions">
+            <button id="world-view" class="button button-ghost" type="button">세계 지도</button>
+            <button id="presentation-mode" class="button button-ghost" type="button">전체 화면</button>
+          </div>
+        </div>
+        <div class="overlay-legend">
+          <span class="legend-dot quake"></span> 지진
+          <span class="legend-triangle"></span> 화산
+          <span class="legend-line student-line"></span> 모둠 경계
+          <span class="legend-line answer-line"></span> 실제 경계
+        </div>
+        <div id="evidence-drawer" class="evidence-drawer">
+          <button id="drawer-toggle" type="button"><span>모둠 근거 보기</span><b>⌃</b></button>
+          <div id="evidence-list" class="evidence-list"></div>
+        </div>
+      </section>
+    </main>
+
+    <div id="teacher-toast" class="toast" role="status"></div>
+    <script src="./vendor/leaflet.js"></script>
+    <script type="module" src="./teacher.js"></script>
+  </body>
+</html>

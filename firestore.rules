@@ -1,0 +1,54 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function sessionPath(code) {
+      return /databases/$(database)/documents/sessions/$(code);
+    }
+
+    function sessionExists(code) {
+      return exists(sessionPath(code));
+    }
+
+    function isTeacher(code) {
+      return signedIn()
+        && sessionExists(code)
+        && get(sessionPath(code)).data.ownerUid == request.auth.uid;
+    }
+
+    function publicComparison(code) {
+      return sessionExists(code)
+        && get(sessionPath(code)).data.phase in ['compare', 'reveal', 'eastAsia', 'closed'];
+    }
+
+    match /sessions/{code} {
+      allow create: if signedIn()
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.groupCount == 6;
+      allow read: if signedIn();
+      allow update, delete: if isTeacher(code);
+
+      match /groups/{groupId} {
+        allow create: if signedIn()
+          && groupId in ['1', '2', '3', '4', '5', '6']
+          && request.resource.data.ownerUid == request.auth.uid;
+        allow read: if signedIn()
+          && (resource.data.ownerUid == request.auth.uid
+            || isTeacher(code)
+            || publicComparison(code));
+        allow update: if signedIn()
+          && request.resource.data.ownerUid == resource.data.ownerUid
+          && (resource.data.ownerUid == request.auth.uid || isTeacher(code));
+        allow delete: if isTeacher(code);
+      }
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

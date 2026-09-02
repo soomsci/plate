@@ -1,0 +1,12 @@
+{
+  "name": "plate-boundary-classroom",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "data:fetch": "node scripts/fetch-data.mjs",
+    "serve": "node scripts/dev-server.mjs",
+    "check": "node scripts/check.mjs",
+    "check:browser": "node scripts/browser-smoke.mjs"
+  }
+}

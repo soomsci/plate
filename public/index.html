@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#071a2b" />
+    <title>경계선 — 지진과 화산으로 판의 경계 찾기</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body class="landing-page">
+    <div class="ambient ambient-one"></div>
+    <div class="ambient ambient-two"></div>
+    <header class="site-header wrap">
+      <a class="brand" href="./index.html" aria-label="경계선 홈">
+        <span class="brand-mark" aria-hidden="true">⌁</span>
+        <span>경계선</span>
+      </a>
+      <span class="eyebrow">EARTH LAB · 45 MIN</span>
+    </header>
+
+    <main class="landing wrap">
+      <section class="hero-copy">
+        <p class="kicker"><span></span> 데이터로 발견하는 지구의 숨은 선</p>
+        <h1>점들이 모이면,<br /><em>경계가 보인다.</em></h1>
+        <p class="hero-description">
+          전 세계 지진과 화산의 위치를 관찰하고 모둠의 가설을 지도 위에 그려 보세요.
+          정답보다 먼저, 증거를 발견하는 수업입니다.
+        </p>
+        <div class="feature-strip" aria-label="수업 특징">
+          <span><b>01</b> 관찰</span>
+          <i></i>
+          <span><b>02</b> 추론</span>
+          <i></i>
+          <span><b>03</b> 비교</span>
+        </div>
+      </section>
+
+      <section class="entry-panel" aria-label="수업 입장">
+        <div class="entry-card student-entry">
+          <div class="entry-icon" aria-hidden="true">✦</div>
+          <div>
+            <p class="card-label">STUDENT</p>
+            <h2>모둠으로 참여하기</h2>
+            <p>선생님이 알려 준 수업 코드로 탐구를 시작합니다.</p>
+          </div>
+          <form id="join-form" class="join-form">
+            <label for="session-code">수업 코드</label>
+            <div class="input-row">
+              <input id="session-code" name="code" maxlength="6" autocomplete="off" inputmode="text" placeholder="예: PLATE6" required />
+              <button class="button button-primary" type="submit">입장</button>
+            </div>
+          </form>
+        </div>
+
+        <a class="entry-card teacher-entry" href="./teacher.html">
+          <div class="entry-icon" aria-hidden="true">◫</div>
+          <div>
+            <p class="card-label">TEACHER</p>
+            <h2>수업 열기</h2>
+            <p>수업 코드를 만들고 여섯 모둠의 가설을 한눈에 비교합니다.</p>
+          </div>
+          <span class="text-link">교사 대시보드 <b>→</b></span>
+        </a>
+      </section>
+    </main>
+
+    <footer class="landing-footer wrap">
+      <span>중학교 2학년 과학 · 판 구조론 탐구</span>
+      <span>USGS · Smithsonian GVP 자료 활용</span>
+    </footer>
+
+    <script type="module">
+      const form = document.querySelector('#join-form');
+      const input = document.querySelector('#session-code');
+      const fromUrl = new URLSearchParams(location.search).get('code');
+      if (fromUrl) input.value = fromUrl.toUpperCase();
+      input.addEventListener('input', () => {
+        input.value = input.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+      });
+      form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        const code = input.value.trim().toUpperCase();
+        if (code.length < 4) return input.focus();
+        location.href = `./student.html?code=${encodeURIComponent(code)}`;
+      });
+    </script>
+  </body>
+</html>

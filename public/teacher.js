@@ -450,6 +450,18 @@ $('#presentation-mode').addEventListener('click', async () => {
 });
 $('#drawer-toggle').addEventListener('click', () => $('#evidence-drawer').classList.toggle('is-collapsed'));
 
+function setTimelineHidden(hidden) {
+  $('[data-earthquake-timeline]').classList.toggle('is-hidden', hidden);
+  const button = $('#toggle-timeline');
+  button.textContent = hidden ? '재생바 보기' : '재생바 숨기기';
+  button.setAttribute('aria-pressed', String(!hidden));
+  localStorage.setItem('plate-teacher-timeline-hidden', String(hidden));
+}
+$('#toggle-timeline').addEventListener('click', () => {
+  setTimelineHidden(!$('[data-earthquake-timeline]').classList.contains('is-hidden'));
+});
+setTimelineHidden(localStorage.getItem('plate-teacher-timeline-hidden') === 'true');
+
 renderEmptyGroups();
 renderClassProfiles();
 map.ready.then(() => {

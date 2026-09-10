@@ -1,4 +1,4 @@
-import { firebaseConfig } from './firebase-config.js';
+import { firebaseConfig } from './firebase-config.js?v=20260903-4';
 
 const localPreview = ['localhost', '127.0.0.1'].includes(location.hostname)
   && new URLSearchParams(location.search).get('backend') === 'local';
@@ -39,17 +39,37 @@ class LocalBackend {
     window.dispatchEvent(new Event('plate-boundary-local-change'));
   }
 
-  async createSession() {
+  async createSession({ code: requestedCode, className = '' } = {}) {
     const store = this.store;
-    let code = randomCode();
-    while (store.sessions[code]) code = randomCode();
+    let code = normalizeCode(requestedCode);
+    if (code && !/^[A-Z0-9]{4,6}$/.test(code)) throw new Error('수업 코드는 영문과 숫자 4~6자리로 입력해 주세요.');
+    if (!code) {
+      code = randomCode();
+      while (store.sessions[code]) code = randomCode();
+    }
+    if (store.sessions[code]) {
+      if (store.sessions[code].ownerUid !== this.currentUid) throw new Error('이미 다른 선생님이 사용 중인 코드입니다.');
+      if (className && store.sessions[code].className !== className) {
+        store.sessions[code].className = className;
+        store.sessions[code].updatedAt = nowIso();
+        this.write(store);
+      }
+      return code;
+    }
     store.sessions[code] = {
       code,
+      className,
       ownerUid: this.currentUid,
-      groupCount: 6,
+      groupCount: 7,
       phase: 'explore',
+      dataExplorationEnabled: false,
+      dataReleased: false,
+      earthquakeDataReleased: false,
+      volcanoDataReleased: false,
       showBoundaries: false,
       showKoreaDetail: false,
+      sessionNumber: 1,
+      startedAt: nowIso(),
       createdAt: nowIso(),
       updatedAt: nowIso(),
       groups: {}
@@ -140,6 +160,28 @@ class LocalBackend {
     return targets.length;
   }
 
+  async restartSession(code) {
+    const key = normalizeCode(code);
+    const store = this.store;
+    const session = store.sessions[key];
+    if (!session) throw new Error('수업을 찾을 수 없습니다.');
+    if (session.ownerUid !== this.currentUid) throw new Error('이 수업을 제어할 권한이 없습니다.');
+    Object.assign(session, {
+      phase: 'explore',
+      dataExplorationEnabled: false,
+      dataReleased: false,
+      earthquakeDataReleased: false,
+      volcanoDataReleased: false,
+      showBoundaries: false,
+      showKoreaDetail: false,
+      sessionNumber: Number(session.sessionNumber || 1) + 1,
+      startedAt: nowIso(),
+      updatedAt: nowIso(),
+      groups: {}
+    });
+    this.write(store);
+  }
+
   watchSession(code, callback) {
     const key = normalizeCode(code);
     const emit = () => callback(clone(this.store.sessions[key] || null));
@@ -172,19 +214,58 @@ class FirebaseBackend {
     this.isCloud = true;
   }
 
-  async createSession() {
-    let code = randomCode();
+  async createSession({ code: requestedCode, className = '' } = {}) {
+    let code = normalizeCode(requestedCode);
+    if (code && !/^[A-Z0-9]{4,6}$/.test(code)) throw new Error('수업 코드는 영문과 숫자 4~6자리로 입력해 주세요.');
+    if (code) {
+      const ref = this.doc(this.db, 'sessions', code);
+      const snapshot = await this.getDoc(ref);
+      if (snapshot.exists()) {
+        if (snapshot.data().ownerUid !== this.currentUid) throw new Error('이미 다른 선생님이 사용 중인 코드입니다.');
+        if (className && snapshot.data().className !== className) {
+          await this.updateDoc(ref, { className, updatedAt: this.serverTimestamp() });
+        }
+        return code;
+      }
+      await this.setDoc(ref, {
+        code,
+        className,
+        ownerUid: this.currentUid,
+        groupCount: 7,
+        phase: 'explore',
+        dataExplorationEnabled: false,
+        dataReleased: false,
+        earthquakeDataReleased: false,
+        volcanoDataReleased: false,
+        showBoundaries: false,
+        showKoreaDetail: false,
+        sessionNumber: 1,
+        startedAt: this.serverTimestamp(),
+        createdAt: this.serverTimestamp(),
+        updatedAt: this.serverTimestamp()
+      });
+      return code;
+    }
+
+    code = randomCode();
     for (let attempt = 0; attempt < 12; attempt += 1) {
       const ref = this.doc(this.db, 'sessions', code);
       const snapshot = await this.getDoc(ref);
       if (!snapshot.exists()) {
         await this.setDoc(ref, {
           code,
+          className,
           ownerUid: this.currentUid,
-          groupCount: 6,
+          groupCount: 7,
           phase: 'explore',
+          dataExplorationEnabled: false,
+          dataReleased: false,
+          earthquakeDataReleased: false,
+          volcanoDataReleased: false,
           showBoundaries: false,
           showKoreaDetail: false,
+          sessionNumber: 1,
+          startedAt: this.serverTimestamp(),
           createdAt: this.serverTimestamp(),
           updatedAt: this.serverTimestamp()
         });
@@ -210,21 +291,19 @@ class FirebaseBackend {
   async claimGroup(code, group) {
     const sessionCode = normalizeCode(code);
     const ref = this.doc(this.db, 'sessions', sessionCode, 'groups', String(group));
-    return this.runTransaction(this.db, async (transaction) => {
-      const snapshot = await transaction.get(ref);
-      if (snapshot.exists() && snapshot.data().ownerUid !== this.currentUid) {
-        throw new Error('이미 다른 기기에서 선택한 모둠입니다.');
-      }
-      if (!snapshot.exists()) {
-        transaction.set(ref, {
-          ownerUid: this.currentUid,
-          group: Number(group),
-          status: 'connected',
-          connectedAt: this.serverTimestamp()
-        });
-      }
+    try {
+      await this.setDoc(ref, {
+        ownerUid: this.currentUid,
+        group: Number(group),
+        status: 'connected',
+        connectedAt: this.serverTimestamp()
+      }, { merge: true });
+      const snapshot = await this.getDoc(ref);
       return snapshot.exists() ? snapshot.data() : { ownerUid: this.currentUid, group: Number(group), status: 'connected' };
-    });
+    } catch (error) {
+      if (error?.code === 'permission-denied') throw new Error('이미 다른 기기에서 선택한 모둠입니다.');
+      throw error;
+    }
   }
 
   async getGroup(code, group) {
@@ -266,6 +345,30 @@ class FirebaseBackend {
     snapshot.docs.forEach((item) => batch.update(item.ref, this.submissionReset()));
     await batch.commit();
     return snapshot.size;
+  }
+
+  async restartSession(code) {
+    const key = normalizeCode(code);
+    const sessionRef = this.doc(this.db, 'sessions', key);
+    const sessionSnapshot = await this.getDoc(sessionRef);
+    if (!sessionSnapshot.exists()) throw new Error('수업을 찾을 수 없습니다.');
+    if (sessionSnapshot.data().ownerUid !== this.currentUid) throw new Error('이 수업을 제어할 권한이 없습니다.');
+    const groupsSnapshot = await this.getDocs(this.collection(this.db, 'sessions', key, 'groups'));
+    const batch = this.writeBatch(this.db);
+    groupsSnapshot.docs.forEach((item) => batch.delete(item.ref));
+    batch.update(sessionRef, {
+      phase: 'explore',
+      dataExplorationEnabled: false,
+      dataReleased: false,
+      earthquakeDataReleased: false,
+      volcanoDataReleased: false,
+      showBoundaries: false,
+      showKoreaDetail: false,
+      sessionNumber: Number(sessionSnapshot.data().sessionNumber || 1) + 1,
+      startedAt: this.serverTimestamp(),
+      updatedAt: this.serverTimestamp()
+    });
+    await batch.commit();
   }
 
   watchSession(code, callback, onError = console.error) {

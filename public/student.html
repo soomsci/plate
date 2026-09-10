@@ -5,45 +5,93 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#071a2b" />
     <title>학생 탐구 지도 — 경계선</title>
-    <link rel="stylesheet" href="./vendor/leaflet.css" />
-    <link rel="stylesheet" href="./vendor/leaflet-draw.css" />
-    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./vendor/leaflet.css?v=1.9.4" />
+    <link rel="stylesheet" href="./vendor/leaflet-draw.css?v=1.0.4" />
+    <link rel="stylesheet" href="./styles.css?v=20260903-3" />
   </head>
   <body class="app-page">
     <header class="app-header">
       <a class="brand compact" href="./index.html"><span class="brand-mark">⌁</span><span>경계선</span></a>
       <nav class="tabs" aria-label="학생 활동 탭">
-        <button class="tab is-active" data-tab="map" type="button"><span>01</span> 탐구 지도</button>
-        <button class="tab is-locked" data-tab="principle" type="button"><span>02</span> 왜 이곳에서?</button>
+        <button class="tab is-active" data-tab="principle" type="button"><span>01</span> 원리 먼저 학습</button>
+        <button class="tab is-locked" data-tab="map" type="button"><span>02</span> 데이터 탐구</button>
       </nav>
       <div class="session-pill"><small>수업</small><b id="header-code">------</b><span id="header-group">모둠 선택 전</span></div>
     </header>
 
     <main class="student-shell">
-      <section id="map-tab" class="tab-panel map-workspace is-active">
+      <section id="map-tab" class="tab-panel map-workspace">
         <div id="student-map" class="map-canvas" aria-label="지진과 화산 탐구 지도"></div>
 
         <aside class="map-sidebar">
           <div class="phase-block">
-            <span id="phase-number" class="phase-number">01</span>
+            <span id="phase-number" class="phase-number">02</span>
             <div><small>현재 단계</small><h1 id="phase-title">지진의 흔적 관찰</h1></div>
           </div>
           <p id="phase-guide" class="phase-guide">점들이 길게 이어지는 곳과 비어 있는 곳을 찾아보세요.</p>
 
           <div class="layer-panel">
-            <p class="panel-label">DATA LAYERS</p>
-            <label class="layer-toggle">
-              <input id="earthquake-toggle" type="checkbox" checked />
-              <span class="legend-dot quake"></span>
-              <span><b>지진</b><small id="quake-count">자료 불러오는 중</small></span>
-              <i></i>
-            </label>
-            <label class="layer-toggle">
-              <input id="volcano-toggle" type="checkbox" />
-              <span class="legend-triangle"></span>
-              <span><b>화산</b><small id="volcano-count">자료 불러오는 중</small></span>
-              <i></i>
-            </label>
+            <p class="panel-label">DATA CHAPTERS</p>
+            <div class="data-file-panel" id="volcano-file-panel">
+              <div><b>1. 화산 자료 직접 준비하기</b><small id="volcano-file-status">경도·위도와 분화 연도(year)가 있는 CSV·JSON 파일을 업로드하세요</small></div>
+              <div class="data-file-actions">
+                <label for="upload-volcanoes">내 화산 파일 업로드</label>
+                <input id="upload-volcanoes" type="file" accept=".csv,.json,.geojson,text/csv,application/json" />
+              </div>
+            </div>
+
+            <div class="data-file-panel" id="earthquake-file-panel">
+              <div><b>2. 지진 자료 직접 준비하기</b><small id="earthquake-file-status">직접 찾은 지진 CSV·JSON 파일을 업로드하세요</small></div>
+              <div class="data-file-actions">
+                <label for="upload-earthquakes">내 지진 파일 업로드</label>
+                <input id="upload-earthquakes" type="file" accept=".csv,.json,.geojson,text/csv,application/json" />
+              </div>
+            </div>
+
+            <div class="data-chapter-tabs" role="tablist" aria-label="자료 탐구 챕터">
+              <button data-data-chapter="volcano" type="button" role="tab" aria-selected="false" disabled>2-1 화산</button>
+              <button data-data-chapter="earthquake" type="button" role="tab" aria-selected="false" disabled>2-2 지진</button>
+              <button data-data-chapter="compare" type="button" role="tab" aria-selected="false" disabled>2-3 함께 비교</button>
+            </div>
+
+            <p id="data-empty-state" class="chapter-empty-state">직접 찾은 화산 또는 지진 파일을 업로드하면 해당 탐구 챕터가 열립니다.</p>
+
+            <section class="data-chapter-panel is-hidden" data-chapter-panel="volcano">
+              <div class="data-chapter-heading"><span class="legend-triangle"></span><div><b>화산 분포 관찰</b><small id="volcano-count">파일 업로드 전</small></div></div>
+              <div class="quake-timeline student-timeline is-hidden" data-volcano-timeline>
+                <div class="timeline-heading">
+                  <span><b data-timeline-date>재생 전</b><small data-timeline-count>0곳 누적</small></span>
+                  <button data-timeline-reset type="button" disabled>처음</button>
+                </div>
+                <div class="timeline-controls">
+                  <button class="timeline-play" data-timeline-play type="button" aria-label="화산 누적 재생" disabled>▶ 재생</button>
+                  <input data-timeline-range type="range" aria-label="화산 마지막 분화 연도 누적 시점" disabled />
+                </div>
+                <div class="timeline-years"><span data-timeline-start>과거</span><span>마지막 분화 연도에 따라 화산 누적</span><span data-timeline-end>현재</span></div>
+              </div>
+              <p class="chapter-prompt">재생을 눌러 화산이 나타나는 과정을 본 뒤, 띠 모양으로 이어지는 곳과 판의 경계 관계를 살펴보세요.</p>
+            </section>
+
+            <section class="data-chapter-panel is-hidden" data-chapter-panel="earthquake">
+              <div class="data-chapter-heading"><span class="legend-dot quake"></span><div><b>지진 분포 관찰</b><small id="quake-count">파일 업로드 전</small></div></div>
+              <div class="quake-timeline student-timeline is-hidden" data-earthquake-timeline>
+                <div class="timeline-heading">
+                  <span><b data-timeline-date>재생 전</b><small data-timeline-count>0건 누적</small></span>
+                  <button data-timeline-reset type="button" disabled>처음</button>
+                </div>
+                <div class="timeline-controls">
+                  <button class="timeline-play" data-timeline-play type="button" aria-label="지진 누적 재생" disabled>▶ 재생</button>
+                  <input data-timeline-range type="range" aria-label="지진 발생 누적 시점" disabled />
+                </div>
+                <div class="timeline-years"><span data-timeline-start>2000</span><span>발생 시간에 따라 지진 누적</span><span data-timeline-end>현재</span></div>
+              </div>
+            </section>
+
+            <section class="data-chapter-panel is-hidden" data-chapter-panel="compare">
+              <div class="data-chapter-heading"><span class="legend-pair"><i class="legend-dot quake"></i><i class="legend-triangle"></i></span><div><b>지진·화산 함께 비교</b><small>두 자료가 겹치는 띠를 관찰하세요</small></div></div>
+              <p class="chapter-prompt">두 자료가 함께 모이는 곳과 지진만 이어지는 곳을 구분해 경계 후보를 그려보세요.</p>
+            </section>
+
             <label id="korea-detail-row" class="layer-toggle is-hidden">
               <input id="korea-detail-toggle" type="checkbox" />
               <span class="legend-dot detail"></span>
@@ -61,14 +109,9 @@
             </div>
           </div>
 
-          <form id="submission-form" class="submission-form">
+          <form id="submission-form" class="submission-form" novalidate>
             <label for="evidence">가장 확실한 경계와 그 근거</label>
             <textarea id="evidence" maxlength="180" placeholder="예: 남아메리카 서쪽에서 지진과 화산이 띠 모양으로 겹쳐 보인다." required></textarea>
-
-            <div id="revision-wrap" class="is-hidden">
-              <label for="revision">원리를 확인한 뒤 바꾼 점</label>
-              <textarea id="revision" maxlength="180" placeholder="바꾸지 않았다면 그 이유를 적어 주세요."></textarea>
-            </div>
 
             <fieldset>
               <legend>우리 모둠의 확신</legend>
@@ -79,7 +122,7 @@
               </div>
             </fieldset>
 
-            <button id="submit-boundary" class="button button-accent full" type="submit">1차 경계선 제출</button>
+            <button id="submit-boundary" class="button button-accent full" type="submit">경계선 제출</button>
             <p id="submit-status" class="form-status" role="status"></p>
           </form>
         </aside>
@@ -107,21 +150,83 @@
         </section>
       </section>
 
-      <section id="principle-tab" class="tab-panel principle-page">
-        <div id="principle-lock" class="principle-lock">
-          <div class="lock-orbit"><span>⌁</span></div>
-          <p class="card-label">LOCKED</p>
-          <h1>먼저 경계선을 제출해 주세요.</h1>
-          <p>자료만으로 충분히 관찰한 뒤 원리를 확인하면, 처음 생각이 어떻게 달라지는지 비교할 수 있어요.</p>
-          <button class="button button-primary" data-go-map type="button">탐구 지도로 돌아가기</button>
-        </div>
-
-        <div id="principle-content" class="principle-content is-hidden">
+      <section id="principle-tab" class="tab-panel principle-page is-active">
+        <div id="principle-content" class="principle-content">
           <header class="principle-hero">
-            <p class="kicker"><span></span> 판이 움직일 때 생기는 일</p>
+            <p class="kicker"><span></span> 01 · 탐구 전 원리 학습</p>
             <h1>왜 경계 가까이에<br />흔적이 모일까?</h1>
-            <p>지진과 화산은 같은 장소에 나타나기도 하지만, 만들어지는 과정은 서로 다릅니다.</p>
+            <p>판 경계는 서로 다른 판의 운동이 좁은 띠에 집중되는 곳입니다. 암석이 변형되고 마그마가 만들어지기 쉬워 지진과 화산 활동이 많이 나타나지만, 두 현상이 생기는 과정은 서로 다릅니다.</p>
           </header>
+
+          <section class="plate-process-grid" aria-label="판이 생성되고 섭입하는 과정">
+            <article class="process-card spreading-card">
+              <header>
+                <span>A · 판의 생성</span>
+                <h2>갈라진 틈에서<br />새 해양 지각이 생긴다.</h2>
+                <p>판이 양쪽으로 벌어지면 뜨거운 맨틀 물질이 올라옵니다. 압력이 낮아져 만들어진 마그마가 식어 굳으면서 새로운 해양 지각이 되고, 양쪽으로 이동합니다.</p>
+              </header>
+              <svg class="process-diagram" viewBox="0 0 520 250" role="img" aria-labelledby="spreading-title spreading-desc">
+                <title id="spreading-title">발산 경계에서 새로운 해양 지각이 만들어지는 과정</title>
+                <desc id="spreading-desc">두 판이 벌어지고 맨틀 물질과 마그마가 상승하여 가운데에 새 해양 지각을 만든다.</desc>
+                <rect class="diagram-ocean" width="520" height="82" />
+                <rect class="diagram-mantle" y="120" width="520" height="130" />
+                <g class="spread-plate spread-left">
+                  <path class="oceanic-crust" d="M0 78H209L250 112L224 132H0Z" />
+                  <path class="lithosphere" d="M0 97H209L244 121L218 151H0Z" />
+                </g>
+                <g class="spread-plate spread-right">
+                  <path class="oceanic-crust" d="M520 78H311L270 112L296 132H520Z" />
+                  <path class="lithosphere" d="M520 97H311L276 121L302 151H520Z" />
+                </g>
+                <path class="rising-magma" d="M227 224C230 188 243 165 250 143C255 125 253 108 260 88C267 108 265 126 270 143C277 165 290 188 293 224Z" />
+                <path class="motion-arrow aqua-arrow" d="M224 57H145M145 57L157 49M145 57L157 65" />
+                <path class="motion-arrow aqua-arrow" d="M296 57H375M375 57L363 49M375 57L363 65" />
+                <path class="motion-arrow magma-arrow" d="M260 211V139M260 139L252 151M260 139L268 151" />
+                <text class="diagram-label" x="260" y="24" text-anchor="middle">판이 양쪽으로 벌어짐</text>
+                <text class="diagram-label accent" x="260" y="105" text-anchor="middle">새 해양 지각</text>
+                <text class="diagram-label light" x="260" y="236" text-anchor="middle">맨틀 물질 상승</text>
+              </svg>
+              <ol class="process-steps">
+                <li>판이 벌어짐</li><li>맨틀 물질 상승</li><li>마그마가 식어 굳음</li><li>새 해양 지각 생성</li>
+              </ol>
+            </article>
+
+            <article class="process-card subduction-card">
+              <header>
+                <span>B · 판의 섭입</span>
+                <h2>무거운 해양판이<br />다른 판 아래로 들어간다.</h2>
+                <p>차갑고 밀도가 큰 해양판이 섭입하면 경계와 판 내부에서 지진이 이어집니다. 내려간 판이 내놓은 물의 영향으로 위쪽 맨틀이 일부 녹고, 생긴 마그마가 상승해 화산 활동이 일어날 수 있습니다.</p>
+              </header>
+              <svg class="process-diagram" viewBox="0 0 520 250" role="img" aria-labelledby="subduction-title subduction-desc">
+                <title id="subduction-title">해양판의 섭입과 지진 및 화산 활동 과정</title>
+                <desc id="subduction-desc">해양판이 대륙판 아래로 비스듬히 들어가며 지진이 발생하고, 위쪽 맨틀에서 만들어진 마그마가 상승해 화산을 만든다.</desc>
+                <rect class="diagram-ocean" width="520" height="82" />
+                <rect class="diagram-mantle" y="120" width="520" height="130" />
+                <path class="continental-ground" d="M268 74L326 61L350 52L375 68L405 40L438 70H520V146H302L270 116Z" />
+                <path class="continental-crust" d="M268 75L326 63L350 54L375 70L405 43L438 73H520V122H313L272 103Z" />
+                <g class="subducting-plate">
+                  <path class="oceanic-crust" d="M0 78H245C291 78 317 99 348 132L453 239H418L319 151C286 121 263 106 225 105H0Z" />
+                  <path class="lithosphere" d="M0 98H224C263 98 291 120 322 151L418 239H378L294 169C263 143 244 126 207 124H0Z" />
+                </g>
+                <path class="motion-arrow aqua-arrow" d="M120 57H205M205 57L193 49M205 57L193 65" />
+                <path class="motion-arrow subduct-arrow" d="M273 112L345 174M345 174L329 170M345 174L340 158" />
+                <path class="magma-path" d="M365 202C344 175 347 151 366 130C380 114 389 96 395 76" />
+                <circle class="magma-bubble bubble-one" cx="365" cy="191" r="16" />
+                <circle class="magma-bubble bubble-two" cx="374" cy="154" r="11" />
+                <circle class="quake-node quake-one" cx="274" cy="111" r="5" />
+                <circle class="quake-node quake-two" cx="310" cy="143" r="5" />
+                <circle class="quake-node quake-three" cx="347" cy="177" r="5" />
+                <text class="diagram-label" x="132" y="24" text-anchor="middle">해양판 이동</text>
+                <text class="diagram-label accent" x="314" y="105">섭입</text>
+                <text class="diagram-label light" x="403" y="224" text-anchor="middle">위쪽 맨틀 일부 용융</text>
+                <text class="diagram-label" x="425" y="26" text-anchor="middle">화산</text>
+              </svg>
+              <ol class="process-steps">
+                <li>해양판 섭입</li><li>힘 축적·지진</li><li>위쪽 맨틀 일부 용융</li><li>마그마 상승·화산</li>
+              </ol>
+              <p class="misconception-note"><b>주의</b> 섭입한 판 전체가 그대로 녹는 것이 아니라, 판에서 나온 물이 위쪽 맨틀을 더 잘 녹게 합니다.</p>
+            </article>
+          </section>
 
           <article class="principle-story quake-story">
             <div class="story-copy">
@@ -151,10 +256,10 @@
           </article>
 
           <section class="check-question">
-            <p class="card-label">THINK TOGETHER</p>
+            <p class="card-label">CHECK &amp; EXPLORE</p>
             <h2>지진은 많지만 화산이 없는 경계가 있을 수 있는 까닭은?</h2>
-            <p>모둠원과 이야기한 뒤, 지도로 돌아가 처음 그린 선을 다시 살펴보세요.</p>
-            <button class="button button-accent" data-go-map type="button">경계선 다시 확인하기 →</button>
+            <p>모둠원과 짧게 이야기한 뒤, 실제 자료 파일을 불러와 시간에 따라 흔적이 쌓이는 모습을 확인하세요.</p>
+            <button class="button button-accent" data-start-exploration type="button">학습 완료 · 데이터 탐구 시작 →</button>
           </section>
         </div>
       </section>
@@ -166,14 +271,15 @@
         <h2><span id="dialog-code">------</span> 수업</h2>
         <p>우리 모둠을 선택하세요. 한 모둠은 한 대의 노트북에서 참여합니다.</p>
         <div id="group-grid" class="group-grid"></div>
+        <p id="group-status" class="group-dialog-status" role="alert" aria-live="polite">모둠을 선택한 뒤 아래 시작 버튼을 눌러 주세요.</p>
         <button id="join-group" class="button button-primary full" type="button" value="default" disabled>선택한 모둠으로 시작</button>
         <a href="./index.html" class="dialog-back">다른 코드 입력</a>
       </form>
     </dialog>
 
     <div id="toast" class="toast" role="status"></div>
-    <script src="./vendor/leaflet.js"></script>
-    <script src="./vendor/leaflet-draw.js"></script>
-    <script type="module" src="./student.js"></script>
+    <script src="./vendor/leaflet.js?v=1.9.4"></script>
+    <script src="./vendor/leaflet-draw.js?v=1.0.4"></script>
+    <script type="module" src="./student.js?v=20260903-8"></script>
   </body>
 </html>

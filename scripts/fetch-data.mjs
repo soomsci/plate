@@ -6,7 +6,9 @@ import { fileURLToPath } from 'node:url';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const outputDirectory = path.join(root, 'public', 'data');
 const startYear = 2000;
-const endDate = process.argv[2] || new Date().toISOString().slice(0, 10);
+const args = process.argv.slice(2);
+const volcanoOnly = args.includes('--volcano-only');
+const endDate = args.find((argument) => !argument.startsWith('--')) || new Date().toISOString().slice(0, 10);
 const endYear = Number(endDate.slice(0, 4));
 
 function request(url, redirects = 0) {
@@ -114,6 +116,15 @@ function property(properties, candidates) {
   return '';
 }
 
+function compactGeometry(geometry) {
+  const roundCoordinates = (coordinates) => (
+    typeof coordinates?.[0] === 'number'
+      ? coordinates.map((value) => Number(value.toFixed(4)))
+      : coordinates.map(roundCoordinates)
+  );
+  return geometry ? { type: geometry.type, coordinates: roundCoordinates(geometry.coordinates) } : null;
+}
+
 async function fetchVolcanoes() {
   const params = new URLSearchParams({
     service: 'WFS',
@@ -128,10 +139,13 @@ async function fetchVolcanoes() {
     if (feature.geometry?.type !== 'Point') return [];
     const [lon, lat] = feature.geometry.coordinates;
     if (!Number.isFinite(lon) || !Number.isFinite(lat)) return [];
+    const eruptionYearValue = property(feature.properties, ['lasteruptionyear']);
+    const lastEruptionYear = eruptionYearValue === '' ? null : Number(eruptionYearValue);
     return [{
       id: String(property(feature.properties, ['volcanonumber', 'volcanonum', 'number']) || feature.id || ''),
       name: String(property(feature.properties, ['volcanoname', 'name']) || '화산'),
       country: String(property(feature.properties, ['country']) || ''),
+      lastEruptionYear: Number.isFinite(lastEruptionYear) ? lastEruptionYear : null,
       lat,
       lon
     }];
@@ -158,7 +172,10 @@ async function fetchBoundaries() {
     process.stdout.write(`USGS plate boundaries offset ${offset}: ${page.features?.length || 0}\n`);
     if (!page.features || page.features.length < 1000) break;
   }
-  return { ...template, features };
+  return {
+    type: template?.type || 'FeatureCollection',
+    features: features.map((feature) => ({ type: 'Feature', properties: {}, geometry: compactGeometry(feature.geometry) }))
+  };
 }
 
 async function saveJson(filename, data) {
@@ -167,6 +184,21 @@ async function saveJson(filename, data) {
 }
 
 await mkdir(outputDirectory, { recursive: true });
+
+if (volcanoOnly) {
+  const volcanoes = await fetchVolcanoes();
+  await saveJson('volcanoes.json', {
+    meta: {
+      source: 'Smithsonian Global Volcanism Program — Holocene Volcanoes',
+      sourceUrl: 'https://volcano.si.edu/database/webservices.cfm',
+      snapshotDate: endDate,
+      timelineField: 'lastEruptionYear'
+    },
+    volcanoes
+  });
+  process.stdout.write(`\nDone: ${volcanoes.length} volcanoes.\n`);
+  process.exit(0);
+}
 
 const rawEarthquakes = await fetchEarthquakes({ minMagnitude: 5 });
 const earthquakes = spatialSample(rawEarthquakes);
@@ -189,7 +221,8 @@ await saveJson('volcanoes.json', {
   meta: {
     source: 'Smithsonian Global Volcanism Program — Holocene Volcanoes',
     sourceUrl: 'https://volcano.si.edu/database/webservices.cfm',
-    snapshotDate: endDate
+    snapshotDate: endDate,
+    timelineField: 'lastEruptionYear'
   },
   volcanoes
 });

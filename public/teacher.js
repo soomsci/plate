@@ -1,5 +1,5 @@
 import { backend } from './backend.js?v=20260903-7';
-import { PlateMap, setupEarthquakeTimeline } from './map-app.js?v=20260903-7';
+import { PlateMap, setupEarthquakeTimeline } from './map-app.js?v=20260903-8';
 
 const $ = (selector) => document.querySelector(selector);
 const colors = ['#ff5d35', '#2a7fff', '#13a17d', '#b640da', '#e9a51b', '#e93873', '#627f24'];

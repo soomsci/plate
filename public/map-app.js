@@ -336,7 +336,7 @@ export class PlateMap {
     });
     this.map.setMaxBounds([[-84, -540], [84, 540]]);
     this.map.createPane('dataPane').style.zIndex = '410';
-    this.map.createPane('referencePane').style.zIndex = '420';
+    this.map.createPane('referencePane').style.zIndex = '450';
     this.map.createPane('studentLinePane').style.zIndex = '440';
     this.layers = {
       countries: L.layerGroup().addTo(this.map),
@@ -403,11 +403,19 @@ export class PlateMap {
     this.setVolcanoItems(this.baseVolcanoItems);
 
     if (boundaries?.features?.length) {
+      // 흰 케이싱 위에 굵은 실선 — 모둠 선(점선·색상)과 확실히 구분되고 항상 맨 위에 올라온다
       addWrappedGeoJson(boundaries, this.layers.boundaries, {
         pane: 'referencePane',
         renderer: referenceRenderer,
         smoothFactor: 1.5,
-        style: { color: '#ff5d35', weight: 2.5, opacity: .92, dashArray: '7 6' },
+        style: { color: '#ffffff', weight: 7, opacity: .85, lineCap: 'round', lineJoin: 'round' },
+        interactive: false
+      });
+      addWrappedGeoJson(boundaries, this.layers.boundaries, {
+        pane: 'referencePane',
+        renderer: referenceRenderer,
+        smoothFactor: 1.5,
+        style: { color: '#e10600', weight: 3.4, opacity: 1, lineCap: 'round', lineJoin: 'round' },
         interactive: false
       });
     }

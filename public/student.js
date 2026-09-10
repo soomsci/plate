@@ -1,5 +1,5 @@
 import { backend } from './backend.js?v=20260903-7';
-import { PlateMap, parseEarthquakeFile, parseVolcanoFile, setupEarthquakeTimeline, setupVolcanoTimeline } from './map-app.js?v=20260903-7';
+import { PlateMap, parseEarthquakeFile, parseVolcanoFile, setupEarthquakeTimeline, setupVolcanoTimeline } from './map-app.js?v=20260903-8';
 
 const $ = (selector) => document.querySelector(selector);
 const code = (new URLSearchParams(location.search).get('code') || '').trim().toUpperCase();

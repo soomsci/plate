@@ -1,5 +1,5 @@
 import { backend } from './backend.js?v=20260903-7';
-import { PlateMap, setupEarthquakeTimeline } from './map-app.js?v=20260903-6';
+import { PlateMap, setupEarthquakeTimeline } from './map-app.js?v=20260903-7';
 
 const $ = (selector) => document.querySelector(selector);
 const colors = ['#ff5d35', '#2a7fff', '#13a17d', '#b640da', '#e9a51b', '#e93873', '#627f24'];
@@ -13,6 +13,7 @@ let toastTimer = null;
 let stopSessionWatch = null;
 let stopGroupsWatch = null;
 let teacherTimelineController = null;
+let submissionChapter = 'all';
 const teacherLayerVisibility = {
   earthquakes: localStorage.getItem('plate-teacher-layer-earthquakes') !== 'false',
   volcanoes: localStorage.getItem('plate-teacher-layer-volcanoes') !== 'false'
@@ -112,7 +113,7 @@ function renderGroups(nextGroups) {
     button.addEventListener('click', () => clearGroupSubmission(Number(button.dataset.deleteGroup)));
   });
 
-  map.showSubmissions(groups, visibility);
+  map.showSubmissions(groups, visibility, submissionChapter);
   $('#evidence-list').innerHTML = groups.length ? groups.map((group) => {
     const version = group.v1 || group.v2;
     const answers = group.application;
@@ -423,6 +424,17 @@ $('#close-session').addEventListener('click', () => {
     { phase: reopening ? 'explore' : 'closed', showBoundaries: false, showKoreaDetail: false },
     reopening ? '수업을 다시 열었습니다.' : '수업 세션을 종료했습니다.'
   );
+});
+document.querySelectorAll('[data-submission-chapter]').forEach((button) => {
+  button.addEventListener('click', () => {
+    submissionChapter = button.dataset.submissionChapter;
+    document.querySelectorAll('[data-submission-chapter]').forEach((item) => {
+      const active = item === button;
+      item.classList.toggle('is-active', active);
+      item.setAttribute('aria-pressed', String(active));
+    });
+    map.showSubmissions(groups, visibility, submissionChapter);
+  });
 });
 $('#teacher-toggle-earthquakes').addEventListener('click', () => setTeacherLayer('earthquakes', !teacherLayerVisibility.earthquakes));
 $('#teacher-toggle-volcanoes').addEventListener('click', () => setTeacherLayer('volcanoes', !teacherLayerVisibility.volcanoes));

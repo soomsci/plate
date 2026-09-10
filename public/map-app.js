@@ -653,26 +653,29 @@ export class PlateMap {
     this.applyChapterVisibility();
   }
 
-  showSubmissions(groups, visibility = {}) {
+  showSubmissions(groups, visibility = {}, chapterFilter = 'all') {
     const colors = ['#ff5d35', '#2a7fff', '#13a17d', '#b640da', '#e9a51b', '#e93873', '#627f24'];
     this.layers.submissions.clearLayers();
     groups.forEach((group) => {
       if (visibility[group.group] === false) return;
-      const version = group.v1;
-      (version?.lines || []).forEach((line) => {
+      (group.v1?.lines || []).forEach((line) => {
+        const chapter = line?.chapter || 'volcano';
+        if (chapterFilter !== 'all' && chapter !== chapterFilter) return;
         const coordinates = coordinatesForLine(line);
         const options = {
           color: colors[(group.group - 1) % colors.length],
           weight: 4,
           opacity: .72,
           lineCap: 'round',
+          dashArray: chapter === 'volcano' ? '6 5' : null,
           pane: 'studentLinePane'
         };
+        const label = `${group.group}모둠 · ${chapter === 'volcano' ? '화산' : '지진'} 선`;
         WORLD_OFFSETS.forEach((longitudeOffset) => {
           const latlngs = coordinates.map(([longitude, latitude]) => [latitude, longitude + longitudeOffset]);
           if (latlngs.length < 2) return;
           L.polyline(latlngs, options)
-            .bindTooltip(`${group.group}모둠`, { sticky: true })
+            .bindTooltip(label, { sticky: true })
             .addTo(this.layers.submissions);
         });
       });

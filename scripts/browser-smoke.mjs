@@ -184,6 +184,11 @@ try {
   if (!storedLinesAreFirestoreSafe) throw new Error('Submission lines are not Firestore-safe objects.');
   await waitFor(student, `!document.querySelector('#principle-content').classList.contains('is-hidden')`);
   await waitFor(teacher, `document.querySelector('#submitted-total')?.textContent === '1/7' && globalThis.__plateTeacherMap.layers.submissions.getLayers().length === 3`);
+  await evaluate(teacher, `document.querySelector('[data-submission-chapter="volcano"]').click()`);
+  await waitFor(teacher, `globalThis.__plateTeacherMap.layers.submissions.getLayers().length === 0`);
+  await evaluate(teacher, `document.querySelector('[data-submission-chapter="earthquake"]').click()`);
+  await waitFor(teacher, `globalThis.__plateTeacherMap.layers.submissions.getLayers().length === 3`);
+  await evaluate(teacher, `document.querySelector('[data-submission-chapter="all"]').click()`);
 
   await evaluate(teacher, `window.confirm=()=>true; document.querySelector('[data-delete-group="1"]').click()`);
   await delay(500);

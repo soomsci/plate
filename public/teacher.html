@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#071a2b" />
     <title>교사 대시보드 — 경계선</title>
     <link rel="stylesheet" href="./vendor/leaflet.css?v=1.9.4" />
-    <link rel="stylesheet" href="./styles.css?v=20260903-6" />
+    <link rel="stylesheet" href="./styles.css?v=20260903-9" />
   </head>
   <body class="teacher-page">
     <header class="teacher-header">
@@ -84,7 +84,13 @@
         <div class="overlay-legend">
           <button id="teacher-toggle-earthquakes" class="legend-toggle is-active" type="button" aria-pressed="true"><span class="legend-dot quake"></span><b>지진 켜짐</b></button>
           <button id="teacher-toggle-volcanoes" class="legend-toggle is-active" type="button" aria-pressed="true"><span class="legend-triangle"></span><b>화산 켜짐</b></button>
-          <span class="legend-line student-line"></span> 모둠 경계
+          <div class="submission-chapter-filter" role="group" aria-label="모둠 선 구분">
+            <button data-submission-chapter="all" class="is-active" type="button" aria-pressed="true">전체 선</button>
+            <button data-submission-chapter="volcano" type="button" aria-pressed="false">화산 선</button>
+            <button data-submission-chapter="earthquake" type="button" aria-pressed="false">지진 선</button>
+          </div>
+          <span class="legend-line student-line dashed"></span> 화산 선
+          <span class="legend-line student-line"></span> 지진 선
           <span class="legend-line answer-line"></span> 실제 경계
         </div>
         <div id="evidence-drawer" class="evidence-drawer">
@@ -96,6 +102,6 @@
 
     <div id="teacher-toast" class="toast" role="status"></div>
     <script src="./vendor/leaflet.js?v=1.9.4"></script>
-    <script type="module" src="./teacher.js?v=20260903-8"></script>
+    <script type="module" src="./teacher.js?v=20260903-9"></script>
   </body>
 </html>

@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#071a2b" />
     <title>교사 대시보드 — 경계선</title>
     <link rel="stylesheet" href="./vendor/leaflet.css?v=1.9.4" />
-    <link rel="stylesheet" href="./styles.css?v=20260903-10" />
+    <link rel="stylesheet" href="./styles.css?v=20261019-4" />
   </head>
   <body class="teacher-page">
     <header class="teacher-header">
@@ -17,20 +17,35 @@
 
     <main class="teacher-shell">
       <aside class="teacher-sidebar">
+        <section class="teacher-account-card">
+          <details>
+          <summary>수업 관리 계정 연결 · 선택 사항</summary>
+          <p id="teacher-account-status" role="status">계정 확인 중…</p>
+          <button id="teacher-sign-in" class="button button-primary full" type="button">Google로 로그인·기존 수업 연결</button>
+          <button id="teacher-sign-out" class="button button-ghost full is-hidden" type="button">로그아웃</button>
+          <p id="teacher-account-guide">수업 목록은 로그인 없이 불러옵니다. 다른 컴퓨터에서도 수업을 제어하려면 관리 계정을 연결하세요.</p>
+          </details>
+        </section>
         <section class="session-card">
           <p class="panel-label">CLASS CODE</p>
           <div id="session-empty">
-            <h2>반별 고정 수업 코드</h2>
-            <p>반 이름과 코드를 한 번 정하면 다음 수업에도 같은 코드로 입장할 수 있습니다.</p>
+            <h2>저장된 수업 불러오기</h2>
+            <p>데이터베이스에 저장된 수업을 바로 불러옵니다. 확인할 수업을 선택하세요.</p>
+            <p id="class-list-status" role="status"></p>
+            <div id="saved-classes" class="saved-classes is-hidden"></div>
+            <h3 class="new-class-heading">새 수업 코드 만들기</h3>
             <form id="class-session-form" class="class-session-form">
               <label for="class-name">반 이름<input id="class-name" maxlength="20" autocomplete="off" placeholder="예: 2학년 1반" required /></label>
               <label for="fixed-code">고정 코드<input id="fixed-code" maxlength="6" minlength="4" pattern="[A-Za-z0-9]{4,6}" autocomplete="off" placeholder="예: CLASS1" required /></label>
+              <label for="participation-mode">진행 방식<select id="participation-mode"><option value="group">모둠 활동 · 1~7모둠</option><option value="individual">개별 활동 · 1~25번</option></select></label>
+              <small class="participation-hint">진행 방식은 코드에 저장됩니다. 다른 방식으로 진행하려면 새 코드를 만드세요.</small>
               <button id="create-session" class="button button-accent full" type="submit">이 코드로 수업 열기</button>
             </form>
-            <div id="saved-classes" class="saved-classes is-hidden"></div>
           </div>
           <div id="session-active" class="is-hidden">
             <div class="active-class-heading"><b id="active-class-name">반 이름 없음</b><button id="switch-class" type="button">다른 반 선택</button></div>
+            <p id="active-participation-mode"></p>
+            <p id="session-access" role="status"></p>
             <button id="copy-code" class="class-code" type="button"><b id="class-code">------</b><span>눌러서 복사</span></button>
             <div class="join-url"><span id="join-url">주소 준비 중</span><button id="copy-url" type="button">복사</button></div>
             <button id="restart-session" class="restart-session" type="button">같은 코드로 새 수업 시작</button>
@@ -39,10 +54,11 @@
 
         <section class="progress-card">
           <div class="section-heading">
-            <div><p class="panel-label">LIVE STATUS</p><h2>모둠 제출 현황</h2></div>
+            <div><p class="panel-label">LIVE STATUS</p><h2 id="submission-heading">모둠 제출 현황</h2></div>
             <div class="group-summary"><b id="submitted-total">0/7</b><button id="reset-submissions" type="button" disabled>전체 초기화</button></div>
           </div>
           <div id="group-status-list" class="group-status-list"></div>
+          <p id="submission-access" class="participation-hint is-hidden">탐구 중인 제출 기록은 수업 관리자만 볼 수 있습니다. 비교·공개 단계부터 조회할 수 있습니다.</p>
         </section>
 
         <section class="control-card">
@@ -85,7 +101,7 @@
         <div class="overlay-legend">
           <button id="teacher-toggle-earthquakes" class="legend-toggle is-active" type="button" aria-pressed="true"><span class="legend-dot quake"></span><b>지진 켜짐</b></button>
           <button id="teacher-toggle-volcanoes" class="legend-toggle is-active" type="button" aria-pressed="true"><span class="legend-triangle"></span><b>화산 켜짐</b></button>
-          <div class="submission-chapter-filter" role="group" aria-label="모둠 선 구분">
+          <div class="submission-chapter-filter" role="group" aria-label="제출 선 구분">
             <button data-submission-chapter="all" class="is-active" type="button" aria-pressed="true">전체 선</button>
             <button data-submission-chapter="volcano" type="button" aria-pressed="false">화산 선</button>
             <button data-submission-chapter="earthquake" type="button" aria-pressed="false">지진 선</button>
@@ -103,6 +119,6 @@
 
     <div id="teacher-toast" class="toast" role="status"></div>
     <script src="./vendor/leaflet.js?v=1.9.4"></script>
-    <script type="module" src="./teacher.js?v=20260903-11"></script>
+    <script type="module" src="./teacher.js?v=20261019-4"></script>
   </body>
 </html>

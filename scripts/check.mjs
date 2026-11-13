@@ -43,7 +43,7 @@ if (landing.includes('teacher.html') || landing.includes('교사 대시보드'))
 for (const expected of ['student-map', 'submission-form', 'principle-content', 'application-card', 'group-status', 'upload-earthquakes', 'upload-volcanoes']) {
   if (!student.includes(`id="${expected}"`)) throw new Error(`student.html missing #${expected}`);
 }
-for (const expected of ['teacher-map', 'class-session-form', 'class-name', 'fixed-code', 'create-session', 'restart-session', 'switch-class', 'group-status-list', 'reset-submissions', 'enable-data-exploration', 'release-earthquakes', 'release-volcanoes', 'teacher-toggle-earthquakes', 'teacher-toggle-volcanoes', 'east-boundary', 'close-session']) {
+for (const expected of ['teacher-map', 'teacher-sign-in', 'teacher-sign-out', 'teacher-account-status', 'class-list-status', 'class-session-form', 'class-name', 'fixed-code', 'participation-mode', 'active-participation-mode', 'create-session', 'restart-session', 'switch-class', 'group-status-list', 'reset-submissions', 'enable-data-exploration', 'release-earthquakes', 'release-volcanoes', 'teacher-toggle-earthquakes', 'teacher-toggle-volcanoes', 'east-boundary', 'close-session']) {
   if (!teacher.includes(`id="${expected}"`)) throw new Error(`teacher.html missing #${expected}`);
 }
 

@@ -11,6 +11,18 @@ if (!uid) {
 }
 
 const clone = (value) => value == null ? value : JSON.parse(JSON.stringify(value));
+export const participantCount = (session) => session?.participationMode === 'individual' ? 25 : 7;
+export const participantLabel = (session, number) => `${number}${session?.participationMode === 'individual' ? '번' : '모둠'}`;
+
+function validateParticipationMode(mode) {
+  if (!['group', 'individual'].includes(mode)) throw new Error('수업 진행 방식을 확인해 주세요.');
+}
+
+function validateParticipant(session, group) {
+  if (!Number.isInteger(group) || group < 1 || group > participantCount(session)) {
+    throw new Error('이 수업에서 사용할 수 없는 참여 번호입니다.');
+  }
+}
 const nowIso = () => new Date().toISOString();
 const normalizeCode = (code) => String(code || '').trim().toUpperCase();
 const randomCode = () => {
@@ -39,7 +51,8 @@ class LocalBackend {
     window.dispatchEvent(new Event('plate-boundary-local-change'));
   }
 
-  async createSession({ code: requestedCode, className = '' } = {}) {
+  async createSession({ code: requestedCode, className = '', participationMode = 'group' } = {}) {
+    validateParticipationMode(participationMode);
     const store = this.store;
     let code = normalizeCode(requestedCode);
     if (code && !/^[A-Z0-9]{4,6}$/.test(code)) throw new Error('수업 코드는 영문과 숫자 4~6자리로 입력해 주세요.');
@@ -60,7 +73,8 @@ class LocalBackend {
       code,
       className,
       ownerUid: this.currentUid,
-      groupCount: 7,
+      participationMode,
+      groupCount: participantCount({ participationMode }),
       phase: 'explore',
       dataExplorationEnabled: false,
       dataReleased: false,
@@ -88,6 +102,10 @@ class LocalBackend {
     const session = store.sessions[key];
     if (!session) throw new Error('수업을 찾을 수 없습니다.');
     if (session.ownerUid !== this.currentUid) throw new Error('이 수업을 제어할 권한이 없습니다.');
+    if ((changes.participationMode !== undefined && changes.participationMode !== (session.participationMode || 'group'))
+      || (changes.groupCount !== undefined && changes.groupCount !== session.groupCount)) {
+      throw new Error('진행 방식은 새 수업 코드를 만들 때 선택해 주세요.');
+    }
     Object.assign(session, clone(changes), { updatedAt: nowIso() });
     this.write(store);
   }
@@ -98,8 +116,9 @@ class LocalBackend {
     const store = this.store;
     const session = store.sessions[key];
     if (!session) throw new Error('수업 코드를 확인해 주세요.');
+    validateParticipant(session, group);
     const existing = session.groups[groupKey];
-    if (existing && existing.ownerUid !== this.currentUid) throw new Error('이미 다른 기기에서 선택한 모둠입니다.');
+    if (existing && existing.ownerUid !== this.currentUid) throw new Error('이미 다른 기기에서 선택한 참여 번호입니다.');
     session.groups[groupKey] = existing || {
       ownerUid: this.currentUid,
       group: Number(group),
@@ -119,7 +138,7 @@ class LocalBackend {
     const groupKey = String(group);
     const store = this.store;
     const target = store.sessions[key]?.groups[groupKey];
-    if (!target || target.ownerUid !== this.currentUid) throw new Error('모둠 참여 정보를 다시 확인해 주세요.');
+    if (!target || target.ownerUid !== this.currentUid) throw new Error('수업 참여 정보를 다시 확인해 주세요.');
     Object.assign(target, clone(payload), { updatedAt: nowIso() });
     this.write(store);
   }
@@ -202,9 +221,15 @@ class LocalBackend {
       session ? Object.values(session.groups || {}).sort((a, b) => a.group - b.group) : []
     ));
   }
+
+  watchTeacherSessions(callback) {
+    return this.watchSession('', () => callback(
+      Object.values(this.store.sessions)
+    ));
+  }
 }
 
-class FirebaseBackend {
+export class FirebaseBackend {
   constructor(modules, auth, db, user) {
     Object.assign(this, modules);
     this.auth = auth;
@@ -214,7 +239,59 @@ class FirebaseBackend {
     this.isCloud = true;
   }
 
-  async createSession({ code: requestedCode, className = '' } = {}) {
+  async signInTeacher() {
+    const provider = new this.GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+    if (!this.auth.currentUser.isAnonymous) return;
+    try {
+      const result = await this.linkWithPopup(this.auth.currentUser, provider);
+      this.user = result.user;
+      this.currentUid = result.user.uid;
+    } catch (error) {
+      if (error.code !== 'auth/credential-already-in-use') throw error;
+      const credential = this.GoogleAuthProvider.credentialFromError(error);
+      if (!credential) throw error;
+      // Keep the original teacher signed in until their sessions are transferred.
+      const temporaryApp = this.initializeApp(firebaseConfig, `teacher-link-${crypto.randomUUID()}`);
+      try {
+        const temporaryAuth = this.getAuth(temporaryApp);
+        await this.setPersistence(temporaryAuth, this.inMemoryPersistence);
+        const target = await this.signInWithCredential(temporaryAuth, credential);
+        const owned = await this.getDocs(this.query(
+          this.collection(this.db, 'sessions'), this.where('ownerUid', '==', this.currentUid)
+        ));
+        // Each session checks exists + get; ten sessions stay within 20 rule reads.
+        // A retry picks up only the sessions that have not transferred yet.
+        for (let start = 0; start < owned.docs.length; start += 10) {
+          const batch = this.writeBatch(this.db);
+          owned.docs.slice(start, start + 10).forEach((item) => batch.update(item.ref, {
+            ownerUid: target.user.uid, updatedAt: this.serverTimestamp()
+          }));
+          await batch.commit();
+        }
+        const result = await this.signInWithCredential(this.auth, credential);
+        this.user = result.user;
+        this.currentUid = result.user.uid;
+      } finally {
+        await this.deleteApp(temporaryApp);
+      }
+    }
+  }
+
+  async signOutTeacher() {
+    await this.signOut(this.auth);
+  }
+
+  watchTeacherSessions(callback, onError = console.error) {
+    return this.onSnapshot(
+      this.collection(this.db, 'sessions'),
+      (snapshot) => callback(snapshot.docs.map((item) => ({ ...item.data(), code: item.id }))),
+      onError
+    );
+  }
+
+  async createSession({ code: requestedCode, className = '', participationMode = 'group' } = {}) {
+    validateParticipationMode(participationMode);
     let code = normalizeCode(requestedCode);
     if (code && !/^[A-Z0-9]{4,6}$/.test(code)) throw new Error('수업 코드는 영문과 숫자 4~6자리로 입력해 주세요.');
     if (code) {
@@ -231,7 +308,8 @@ class FirebaseBackend {
         code,
         className,
         ownerUid: this.currentUid,
-        groupCount: 7,
+        participationMode,
+        groupCount: participantCount({ participationMode }),
         phase: 'explore',
         dataExplorationEnabled: false,
         dataReleased: false,
@@ -256,7 +334,8 @@ class FirebaseBackend {
           code,
           className,
           ownerUid: this.currentUid,
-          groupCount: 7,
+          participationMode,
+          groupCount: participantCount({ participationMode }),
           phase: 'explore',
           dataExplorationEnabled: false,
           dataReleased: false,
@@ -290,6 +369,9 @@ class FirebaseBackend {
 
   async claimGroup(code, group) {
     const sessionCode = normalizeCode(code);
+    const session = await this.getSession(sessionCode);
+    if (!session) throw new Error('수업 코드를 확인해 주세요.');
+    validateParticipant(session, group);
     const ref = this.doc(this.db, 'sessions', sessionCode, 'groups', String(group));
     try {
       await this.setDoc(ref, {
@@ -301,7 +383,7 @@ class FirebaseBackend {
       const snapshot = await this.getDoc(ref);
       return snapshot.exists() ? snapshot.data() : { ownerUid: this.currentUid, group: Number(group), status: 'connected' };
     } catch (error) {
-      if (error?.code === 'permission-denied') throw new Error('이미 다른 기기에서 선택한 모둠입니다.');
+      if (error?.code === 'permission-denied') throw new Error('이미 다른 기기에서 선택한 참여 번호입니다.');
       throw error;
     }
   }
@@ -396,12 +478,13 @@ async function initializeBackend() {
   const firestoreModule = await import('https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js');
   const app = appModule.initializeApp(firebaseConfig);
   const auth = authModule.getAuth(app);
-  const credential = await authModule.signInAnonymously(auth);
+  await auth.authStateReady();
+  const user = auth.currentUser || (await authModule.signInAnonymously(auth)).user;
   const db = firestoreModule.getFirestore(app);
 
   return new FirebaseBackend({
-    ...firestoreModule
-  }, auth, db, credential.user);
+    ...firestoreModule, ...authModule, ...appModule
+  }, auth, db, user);
 }
 
 export const backend = await initializeBackend();

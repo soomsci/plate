@@ -5,6 +5,12 @@ import path from 'node:path';
 
 const chromePath = process.env.CHROME_PATH || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
 const baseUrl = process.env.APP_URL || 'http://127.0.0.1:4173';
+const participationMode = process.env.PARTICIPATION_MODE || 'group';
+const individual = participationMode === 'individual';
+const participantCount = individual ? 25 : 7;
+const selectedGroup = individual ? 25 : 1;
+const participantLabel = `${selectedGroup}${individual ? '번' : '모둠'}`;
+const groupButton = `#group-grid [data-group="${selectedGroup}"]`;
 const port = 9338;
 const profile = await mkdtemp(path.join(os.tmpdir(), 'plate-browser-smoke-'));
 const chrome = spawn(chromePath, [
@@ -83,10 +89,27 @@ try {
   landing.socket.close();
   const teacher = await createTarget(`${baseUrl}/teacher.html?backend=local`);
   await waitFor(teacher, `document.querySelector('#class-session-form') && document.querySelector('#backend-mode')?.textContent.includes('로컬')`);
-  await evaluate(teacher, `(() => { document.querySelector('#class-name').value='2학년 1반'; document.querySelector('#fixed-code').value='CLASS1'; document.querySelector('#class-session-form').requestSubmit(); })()`);
+  if (process.env.CREATE_SCREENSHOT_PATH) {
+    const screenshot = await teacher.send('Page.captureScreenshot', { format: 'png', fromSurface: true });
+    await writeFile(process.env.CREATE_SCREENSHOT_PATH, Buffer.from(screenshot.data, 'base64'));
+  }
+  await evaluate(teacher, `(() => { document.querySelector('#participation-mode').value='${participationMode}'; document.querySelector('#class-name').value='2학년 1반'; document.querySelector('#fixed-code').value='CLASS1'; document.querySelector('#class-session-form').requestSubmit(); })()`);
   await waitFor(teacher, `document.querySelector('#class-code')?.textContent === 'CLASS1' && document.querySelector('#active-class-name')?.textContent === '2학년 1반'`);
   const code = await evaluate(teacher, `document.querySelector('#class-code').textContent`);
+  await waitFor(teacher, `document.querySelectorAll('#group-status-list .group-status').length === ${participantCount} && document.querySelector('#active-participation-mode').textContent.includes('${individual ? '개별' : '모둠'}')`);
+  // Existing sessions without a mode remain group sessions.
+  if (!individual) await evaluate(teacher, `(() => { const db=JSON.parse(localStorage.getItem('plate-boundary-local-db')); delete db.sessions.CLASS1.participationMode; localStorage.setItem('plate-boundary-local-db', JSON.stringify(db)); })()`);
   if (code !== 'CLASS1') throw new Error(`Fixed class code was not used: ${code}`);
+  // A fresh computer lists DB sessions immediately; viewing does not grant control.
+  const teacherUid = await evaluate(teacher, `sessionStorage.getItem('plate-boundary-device-id')`);
+  await evaluate(teacher, `localStorage.removeItem('plate-teacher-classes'); localStorage.removeItem('plate-teacher-session')`);
+  const secondTeacher = await createTarget(`${baseUrl}/teacher.html?backend=local`);
+  await waitFor(secondTeacher, `document.querySelector('#backend-mode')?.textContent.includes('로컬')`);
+  if (!await evaluate(secondTeacher, `Boolean(document.querySelector('[data-class-code="CLASS1"]'))`)) throw new Error('로그인하지 않은 새 기기에서 DB의 기존 수업 목록이 보이지 않습니다.');
+  await evaluate(secondTeacher, `document.querySelector('[data-class-code="CLASS1"]').click()`);
+  await waitFor(secondTeacher, `document.querySelector('#class-code').textContent === 'CLASS1' && document.querySelector('#session-access').textContent.includes('조회 중') && document.querySelector('#restart-session').disabled && [...document.querySelectorAll('.control-stack button')].every((button) => button.disabled) && !document.querySelector('#submission-access').classList.contains('is-hidden')`);
+  if (await evaluate(secondTeacher, `JSON.parse(localStorage.getItem('plate-boundary-local-db')).sessions.CLASS1.ownerUid`) !== teacherUid) throw new Error('Opening a DB session changed its owner.');
+  console.log('DB history passed: a fresh device lists and opens existing sessions without account linking; control ownership is preserved.');
   await waitFor(teacher, `document.querySelector('#enable-data-exploration') && document.querySelector('#enable-data-exploration b')?.textContent.includes('시작 허용') && document.querySelector('#release-earthquakes') && document.querySelector('#release-volcanoes') && globalThis.__plateTeacherMap && globalThis.__plateTeacherMap.map.hasLayer(globalThis.__plateTeacherMap.layers.earthquakes) && globalThis.__plateTeacherMap.map.hasLayer(globalThis.__plateTeacherMap.layers.volcanoes)`);
   await evaluate(teacher, `document.querySelector('#teacher-toggle-earthquakes').click()`);
   await waitFor(teacher, `!globalThis.__plateTeacherMap.map.hasLayer(globalThis.__plateTeacherMap.layers.earthquakes) && document.querySelector('#teacher-toggle-earthquakes').getAttribute('aria-pressed') === 'false' && document.querySelector('[data-earthquake-timeline]').classList.contains('is-disabled')`);
@@ -96,15 +119,21 @@ try {
   await waitFor(teacher, `globalThis.__plateTeacherMap.map.hasLayer(globalThis.__plateTeacherMap.layers.volcanoes)`);
 
   const student = await createTarget(`${baseUrl}/student.html?code=${code}&backend=local`);
-  await waitFor(student, `document.querySelectorAll('#group-grid button').length === 7 && document.querySelector('#group-grid button:last-child')?.textContent === '7모둠' && document.querySelector('#group-dialog')?.open`);
-  await evaluate(student, `document.querySelector('#group-grid button').click()`);
-  await waitFor(student, `!document.querySelector('#join-group').disabled && document.querySelector('#group-status')?.textContent.includes('1모둠을 선택')`);
+  await waitFor(student, `document.querySelectorAll('#group-grid button').length === ${participantCount} && document.querySelector('#group-grid button:last-child')?.textContent === '${participantCount}${individual ? '번' : '모둠'}' && document.querySelector('#group-dialog')?.open`);
+  if (process.env.JOIN_SCREENSHOT_PATH) {
+    const screenshot = await student.send('Page.captureScreenshot', { format: 'png', fromSurface: true });
+    await writeFile(process.env.JOIN_SCREENSHOT_PATH, Buffer.from(screenshot.data, 'base64'));
+  }
+  const rejectsInvalidNumbers = await evaluate(student, `(async () => { const { backend } = await import('./backend.js?v=20261019-4'); for (const n of [0, ${participantCount + 1}, 1.5]) { try { await backend.claimGroup('${code}', n); return false; } catch (error) { if (!error.message.includes('참여 번호')) throw error; } } return true; })()`);
+  if (!rejectsInvalidNumbers) throw new Error('Invalid participant number was accepted.');
+  await evaluate(student, `document.querySelector('${groupButton}').click()`);
+  await waitFor(student, `!document.querySelector('#join-group').disabled && document.querySelector('#group-status')?.textContent.includes('${participantLabel} 선택')`);
   await evaluate(student, `document.querySelector('#join-group').click()`);
   await waitFor(student, `!document.querySelector('#group-dialog').open && document.querySelector('[data-start-exploration]')?.disabled && document.querySelector('[data-start-exploration]')?.textContent.includes('시작 신호') && document.querySelector('[data-tab="map"]').classList.contains('is-locked') && document.querySelectorAll('.plate-process-grid svg').length === 2`);
   const occupiedStudent = await createTarget(`${baseUrl}/student.html?code=${code}&backend=local`);
-  await waitFor(occupiedStudent, `document.querySelector('#group-grid button') && document.querySelector('#group-dialog')?.open`);
-  await evaluate(occupiedStudent, `document.querySelector('#group-grid button').click(); document.querySelector('#join-group').click()`);
-  await waitFor(occupiedStudent, `document.querySelector('#group-dialog').open && document.querySelector('#group-status')?.classList.contains('is-error') && document.querySelector('#group-status')?.textContent.includes('이미 다른 기기') && document.querySelector('#group-grid button').disabled`);
+  await waitFor(occupiedStudent, `document.querySelector('${groupButton}') && document.querySelector('#group-dialog')?.open`);
+  await evaluate(occupiedStudent, `document.querySelector('${groupButton}').click(); document.querySelector('#join-group').click()`);
+  await waitFor(occupiedStudent, `document.querySelector('#group-dialog').open && document.querySelector('#group-status')?.classList.contains('is-error') && document.querySelector('#group-status')?.textContent.includes('이미 다른 기기') && document.querySelector('${groupButton}').disabled`);
   await waitFor(student, `globalThis.__plateStudentMap.ready === null && performance.getEntriesByType('resource').every((entry) => !entry.name.includes('/data/'))`);
   await evaluate(student, `document.querySelector('[data-tab="map"]').click()`);
   await waitFor(student, `document.querySelector('#toast')?.textContent.includes('선생님이 데이터 탐구를 시작')`);
@@ -123,7 +152,7 @@ try {
   await evaluate(student, `document.querySelector('[data-start-exploration]').click()`);
   await waitFor(student, `document.querySelector('#map-tab').classList.contains('is-active') && !document.querySelector('#upload-earthquakes').disabled && !document.querySelector('#upload-volcanoes').disabled && [...document.querySelectorAll('[data-data-chapter]')].every((button) => button.disabled) && !document.querySelector('#data-empty-state').classList.contains('is-hidden') && [...document.querySelectorAll('[data-chapter-panel]')].every((panel) => panel.classList.contains('is-hidden')) && !globalThis.__plateStudentMap.map.hasLayer(globalThis.__plateStudentMap.layers.earthquakes) && !globalThis.__plateStudentMap.map.hasLayer(globalThis.__plateStudentMap.layers.volcanoes) && globalThis.__plateStudentMap.layers.countries.getLayers().length === 3 && globalThis.__plateStudentMap.layers.boundaries.getLayers().length === 6 && getComputedStyle(document.querySelector('.leaflet-draw-draw-polyline'),'::after').content.includes('선 그리기') && getComputedStyle(document.querySelector('.leaflet-draw-edit-edit'),'::after').content.includes('선 수정')`);
   await student.send('Page.reload', { ignoreCache: true });
-  await waitFor(student, `document.querySelector('#map-tab')?.classList.contains('is-active') && !document.querySelector('#group-dialog')?.open && document.querySelector('#header-group')?.textContent === '1모둠' && document.querySelector('.leaflet-draw-draw-polyline') && globalThis.__plateStudentMap`);
+  await waitFor(student, `document.querySelector('#map-tab')?.classList.contains('is-active') && !document.querySelector('#group-dialog')?.open && document.querySelector('#header-group')?.textContent === '${participantLabel}' && document.querySelector('.leaflet-draw-draw-polyline') && globalThis.__plateStudentMap`);
   await evaluate(teacher, `document.querySelector('#enable-data-exploration').click()`);
   await waitFor(student, `document.querySelector('#principle-tab').classList.contains('is-active') && document.querySelector('[data-tab="map"]').classList.contains('is-locked') && document.querySelector('[data-start-exploration]').disabled && document.querySelector('.leaflet-draw-draw-polyline') === null`);
   await evaluate(teacher, `document.querySelector('#enable-data-exploration').click()`);
@@ -180,29 +209,40 @@ try {
   await delay(500);
   const submissionDiagnostic = await evaluate(student, `(() => ({status:document.querySelector('#submit-status').textContent,toast:document.querySelector('#toast').textContent,paths:document.querySelectorAll('.leaflet-overlay-pane path').length,db:localStorage.getItem('plate-boundary-local-db')}))()`);
   if (!submissionDiagnostic.status) console.log('Submission diagnostic:', JSON.stringify(submissionDiagnostic));
-  const storedLinesAreFirestoreSafe = await evaluate(student, `(() => { const db=JSON.parse(localStorage.getItem('plate-boundary-local-db')); const session=db.sessions['${code}']; const lines=session.groups['1'].v1.lines; return Array.isArray(lines) && lines.length > 0 && Array.isArray(lines[0].points) && !Array.isArray(lines[0].points[0]); })()`);
+  const storedLinesAreFirestoreSafe = await evaluate(student, `(() => { const db=JSON.parse(localStorage.getItem('plate-boundary-local-db')); const session=db.sessions['${code}']; const lines=session.groups['${selectedGroup}'].v1.lines; return Array.isArray(lines) && lines.length > 0 && Array.isArray(lines[0].points) && !Array.isArray(lines[0].points[0]); })()`);
   if (!storedLinesAreFirestoreSafe) throw new Error('Submission lines are not Firestore-safe objects.');
   await waitFor(student, `!document.querySelector('#principle-content').classList.contains('is-hidden')`);
-  await waitFor(teacher, `document.querySelector('#submitted-total')?.textContent === '1/7' && globalThis.__plateTeacherMap.layers.submissions.getLayers().length === 3`);
+  await waitFor(teacher, `document.querySelector('#submitted-total')?.textContent === '1/${participantCount}' && globalThis.__plateTeacherMap.layers.submissions.getLayers().length === 3`);
+  await evaluate(teacher, `document.querySelector('[data-phase="compare"]').click()`);
+  await waitFor(secondTeacher, `document.querySelector('#submitted-total').textContent === '1/${participantCount}' && document.querySelector('#evidence-list').textContent.includes('지진이 길게') && document.querySelector('[data-delete-group="${selectedGroup}"]').disabled && document.querySelector('#reset-submissions').disabled`);
+  await evaluate(teacher, `document.querySelector('[data-phase="compare"]').click()`);
+  await waitFor(secondTeacher, `!document.querySelector('#submission-access').classList.contains('is-hidden') && globalThis.__plateTeacherMap.layers.submissions.getLayers().length === 0`);
+
+  await waitFor(teacher, `globalThis.__plateTeacherMap.layers.submissions.getLayers().every((layer) => layer.getTooltip().getContent().startsWith('${participantLabel} ·'))`);
+  await evaluate(teacher, `document.querySelector('[data-group="${selectedGroup}"]').click()`);
+  await waitFor(teacher, `globalThis.__plateTeacherMap.layers.submissions.getLayers().length === 0`);
+  await evaluate(teacher, `document.querySelector('[data-group="${selectedGroup}"]').click()`);
+  await waitFor(teacher, `globalThis.__plateTeacherMap.layers.submissions.getLayers().length === 3`);
   await evaluate(teacher, `document.querySelector('[data-submission-chapter="volcano"]').click()`);
   await waitFor(teacher, `globalThis.__plateTeacherMap.layers.submissions.getLayers().length === 0`);
   await evaluate(teacher, `document.querySelector('[data-submission-chapter="earthquake"]').click()`);
   await waitFor(teacher, `globalThis.__plateTeacherMap.layers.submissions.getLayers().length === 3`);
   await evaluate(teacher, `document.querySelector('[data-submission-chapter="all"]').click()`);
 
-  await evaluate(teacher, `window.confirm=()=>true; document.querySelector('[data-delete-group="1"]').click()`);
+  await evaluate(teacher, `window.confirm=()=>true; document.querySelector('[data-delete-group="${selectedGroup}"]').click()`);
   await delay(500);
   const deletionDiagnostic = await evaluate(teacher, `(() => ({total:document.querySelector('#submitted-total').textContent,toast:document.querySelector('#teacher-toast').textContent,db:localStorage.getItem('plate-boundary-local-db')}))()`);
-  if (deletionDiagnostic.total !== '0/7') throw new Error(`Individual deletion failed: ${JSON.stringify(deletionDiagnostic)}`);
-  await waitFor(teacher, `document.querySelector('#submitted-total')?.textContent === '0/7'`);
+  if (deletionDiagnostic.total !== `0/${participantCount}`) throw new Error(`Individual deletion failed: ${JSON.stringify(deletionDiagnostic)}`);
+  await waitFor(teacher, `document.querySelector('#submitted-total')?.textContent === '0/${participantCount}'`);
   await evaluate(student, `document.querySelector('#submission-form').requestSubmit()`);
-  await waitFor(teacher, `document.querySelector('#submitted-total')?.textContent === '1/7'`);
+  await waitFor(teacher, `document.querySelector('#submitted-total')?.textContent === '1/${participantCount}'`);
   await evaluate(teacher, `document.querySelector('#reset-submissions').click()`);
-  await waitFor(teacher, `document.querySelector('#submitted-total')?.textContent === '0/7'`);
+  await waitFor(teacher, `document.querySelector('#submitted-total')?.textContent === '0/${participantCount}'`);
 
   await evaluate(teacher, `document.querySelector('[data-phase="compare"]').click()`);
   await waitFor(student, `document.querySelector('#submit-boundary').disabled && document.querySelector('.leaflet-draw-draw-polyline') === null`);
   await waitFor(teacher, `document.querySelector('[data-phase="compare"] b')?.textContent.includes('마감 취소')`);
+  await waitFor(student, `document.querySelector('#phase-title').textContent === '${individual ? '개별' : '모둠'} 결과 비교'`);
   await evaluate(teacher, `document.querySelector('[data-phase="compare"]').click()`);
   await waitFor(student, `!document.querySelector('#submit-boundary').disabled && document.querySelector('.leaflet-draw-draw-polyline')`);
   await waitFor(teacher, `document.querySelector('[data-phase="compare"] b')?.textContent.includes('제출 마감')`);
@@ -224,20 +264,35 @@ try {
   await evaluate(teacher, `document.querySelector('#close-session').click()`);
   await waitFor(student, `document.querySelector('#phase-title')?.textContent === '자료에서 경계 찾기' && !document.querySelector('#submit-boundary').disabled && document.querySelector('.leaflet-draw-draw-polyline')`);
   await evaluate(teacher, `window.confirm=()=>true; document.querySelector('#restart-session').click()`);
-  await waitFor(teacher, `document.querySelector('#class-code')?.textContent === 'CLASS1' && document.querySelector('#submitted-total')?.textContent === '0/7' && (() => { const db=JSON.parse(localStorage.getItem('plate-boundary-local-db')); const session=db.sessions.CLASS1; return session?.phase === 'explore' && session?.sessionNumber === 2 && Object.keys(session?.groups || {}).length === 0; })()`);
+  await waitFor(teacher, `document.querySelector('#class-code')?.textContent === 'CLASS1' && document.querySelector('#submitted-total')?.textContent === '0/${participantCount}' && (() => { const db=JSON.parse(localStorage.getItem('plate-boundary-local-db')); const session=db.sessions.CLASS1; return session?.phase === 'explore' && session?.sessionNumber === 2 && Object.keys(session?.groups || {}).length === 0; })()`);
   await evaluate(teacher, `document.querySelector('#switch-class').click()`);
   await waitFor(teacher, `!document.querySelector('#session-empty').classList.contains('is-hidden') && document.querySelector('[data-class-code="CLASS1"]')`);
   await evaluate(teacher, `document.querySelector('[data-class-code="CLASS1"]').click()`);
   await waitFor(teacher, `document.querySelector('#class-code')?.textContent === 'CLASS1' && document.querySelector('#active-class-name')?.textContent === '2학년 1반'`);
 
+  await teacher.send('Page.reload', { ignoreCache: true });
+  await waitFor(teacher, `document.querySelector('#active-participation-mode')?.textContent.includes('${individual ? '개별' : '모둠'}') && document.querySelectorAll('#group-status-list .group-status').length === ${participantCount}`);
+  await waitFor(student, `document.querySelector('#group-dialog')?.open && document.querySelectorAll('#group-grid button').length === ${participantCount}`);
+  if (individual) {
+    await evaluate(teacher, `document.querySelector('#switch-class').click(); document.querySelector('#class-name').value='2학년 1반'; document.querySelector('#fixed-code').value='CLASS1'; document.querySelector('#participation-mode').value='group'; document.querySelector('#class-session-form').requestSubmit()`);
+    await waitFor(teacher, `document.querySelector('#teacher-toast').textContent.includes('진행 방식이 다릅니다')`);
+    await evaluate(teacher, `document.querySelector('[data-class-code="CLASS1"]').click()`);
+    await waitFor(teacher, `document.querySelector('#active-participation-mode').textContent.includes('개별') && document.querySelector('#submitted-total').textContent === '0/25'`);
+  }
+  if (process.env.TEACHER_SCREENSHOT_PATH) {
+    const screenshot = await teacher.send('Page.captureScreenshot', { format: 'png', fromSurface: true });
+    await writeFile(process.env.TEACHER_SCREENSHOT_PATH, Buffer.from(screenshot.data, 'base64'));
+  }
+
   const studentStatus = await evaluate(student, `document.querySelector('#submit-status').textContent`);
   const teacherStatus = await evaluate(teacher, `document.querySelector('#submitted-total').textContent`);
-  const runtimeErrors = [...teacher.exceptions, ...student.exceptions, ...occupiedStudent.exceptions];
+  const runtimeErrors = [...teacher.exceptions, ...student.exceptions, ...occupiedStudent.exceptions, ...secondTeacher.exceptions];
   if (runtimeErrors.length) throw new Error(`Browser runtime errors: ${runtimeErrors.join('; ')}`);
-  console.log(`Browser smoke passed: session ${code}, student="${studentStatus}", teacher=${teacherStatus}`);
+  console.log(`Browser smoke passed (${participationMode}): session ${code}, student="${studentStatus}", teacher=${teacherStatus}`);
   teacher.socket.close();
   student.socket.close();
   occupiedStudent.socket.close();
+  secondTeacher.socket.close();
 } finally {
   if (chrome.exitCode === null) chrome.kill();
   await Promise.race([chromeExited, delay(2000)]);

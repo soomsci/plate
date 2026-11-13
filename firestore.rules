@@ -25,16 +25,29 @@ service cloud.firestore {
         && get(sessionPath(code)).data.phase in ['compare', 'reveal', 'eastAsia', 'closed'];
     }
 
+    function validParticipation(data) {
+      return (data.get('participationMode', 'group') == 'group' && data.groupCount == 7)
+        || (data.get('participationMode', 'group') == 'individual' && data.groupCount == 25);
+    }
+
     match /sessions/{code} {
       allow create: if signedIn()
         && request.resource.data.ownerUid == request.auth.uid
-        && request.resource.data.groupCount == 7;
+        && validParticipation(request.resource.data);
       allow read: if signedIn();
-      allow update, delete: if isTeacher(code);
+      allow update: if isTeacher(code)
+        && validParticipation(request.resource.data)
+        && request.resource.data.get('participationMode', 'group') == resource.data.get('participationMode', 'group')
+        && request.resource.data.groupCount == resource.data.groupCount;
+      allow delete: if isTeacher(code);
 
       match /groups/{groupId} {
         allow create: if signedIn()
-          && groupId in ['1', '2', '3', '4', '5', '6', '7']
+          && sessionExists(code)
+          && request.resource.data.group is int
+          && groupId == string(request.resource.data.group)
+          && request.resource.data.group >= 1
+          && request.resource.data.group <= get(sessionPath(code)).data.groupCount
           && request.resource.data.ownerUid == request.auth.uid;
         allow read: if signedIn()
           && (resource.data.ownerUid == request.auth.uid
@@ -42,6 +55,7 @@ service cloud.firestore {
             || publicComparison(code));
         allow update: if signedIn()
           && request.resource.data.ownerUid == resource.data.ownerUid
+          && request.resource.data.group == resource.data.group
           && (resource.data.ownerUid == request.auth.uid || isTeacher(code));
         allow delete: if isTeacher(code);
       }

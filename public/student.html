@@ -7,7 +7,7 @@
     <title>학생 탐구 지도 — 경계선</title>
     <link rel="stylesheet" href="./vendor/leaflet.css?v=1.9.4" />
     <link rel="stylesheet" href="./vendor/leaflet-draw.css?v=1.0.4" />
-    <link rel="stylesheet" href="./styles.css?v=20260903-10" />
+    <link rel="stylesheet" href="./styles.css?v=20261019-4" />
   </head>
   <body class="app-page">
     <header class="app-header">
@@ -114,7 +114,7 @@
             <textarea id="evidence" maxlength="180" placeholder="예: 남아메리카 서쪽에서 지진과 화산이 띠 모양으로 겹쳐 보인다." required></textarea>
 
             <fieldset>
-              <legend>우리 모둠의 확신</legend>
+              <legend id="confidence-label">우리 모둠의 확신</legend>
               <div class="segmented">
                 <label><input type="radio" name="confidence" value="낮음" /><span>낮음</span></label>
                 <label><input type="radio" name="confidence" value="보통" checked /><span>보통</span></label>
@@ -258,7 +258,7 @@
           <section class="check-question">
             <p class="card-label">CHECK &amp; EXPLORE</p>
             <h2>지진은 많지만 화산이 없는 경계가 있을 수 있는 까닭은?</h2>
-            <p>모둠원과 짧게 이야기한 뒤, 실제 자료 파일을 불러와 시간에 따라 흔적이 쌓이는 모습을 확인하세요.</p>
+            <p id="exploration-guide">모둠원과 짧게 이야기한 뒤, 실제 자료 파일을 불러와 시간에 따라 흔적이 쌓이는 모습을 확인하세요.</p>
             <button class="button button-accent" data-start-exploration type="button">학습 완료 · 데이터 탐구 시작 →</button>
           </section>
         </div>
@@ -269,7 +269,7 @@
       <form method="dialog">
         <p class="card-label">JOIN CLASS</p>
         <h2><span id="dialog-code">------</span> 수업</h2>
-        <p>우리 모둠을 선택하세요. 한 모둠은 한 대의 노트북에서 참여합니다.</p>
+        <p id="join-guide">우리 모둠을 선택하세요. 한 모둠은 한 대의 노트북에서 참여합니다.</p>
         <div id="group-grid" class="group-grid"></div>
         <p id="group-status" class="group-dialog-status" role="alert" aria-live="polite">모둠을 선택한 뒤 아래 시작 버튼을 눌러 주세요.</p>
         <button id="join-group" class="button button-primary full" type="button" value="default" disabled>선택한 모둠으로 시작</button>
@@ -280,6 +280,6 @@
     <div id="toast" class="toast" role="status"></div>
     <script src="./vendor/leaflet.js?v=1.9.4"></script>
     <script src="./vendor/leaflet-draw.js?v=1.0.4"></script>
-    <script type="module" src="./student.js?v=20260903-10"></script>
+    <script type="module" src="./student.js?v=20261019-4"></script>
   </body>
 </html>

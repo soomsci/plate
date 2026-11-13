@@ -661,7 +661,7 @@ export class PlateMap {
     this.applyChapterVisibility();
   }
 
-  showSubmissions(groups, visibility = {}, chapterFilter = 'all') {
+  showSubmissions(groups, visibility = {}, chapterFilter = 'all', participantSuffix = '모둠') {
     const colors = ['#ff5d35', '#2a7fff', '#13a17d', '#b640da', '#e9a51b', '#e93873', '#627f24'];
     this.layers.submissions.clearLayers();
     groups.forEach((group) => {
@@ -678,7 +678,7 @@ export class PlateMap {
           dashArray: chapter === 'volcano' ? '6 5' : null,
           pane: 'studentLinePane'
         };
-        const label = `${group.group}모둠 · ${chapter === 'volcano' ? '화산' : '지진'} 선`;
+        const label = `${group.group}${participantSuffix} · ${chapter === 'volcano' ? '화산' : '지진'} 선`;
         WORLD_OFFSETS.forEach((longitudeOffset) => {
           const latlngs = coordinates.map(([longitude, latitude]) => [latitude, longitude + longitudeOffset]);
           if (latlngs.length < 2) return;

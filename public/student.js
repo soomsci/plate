@@ -1,5 +1,5 @@
-import { backend } from './backend.js?v=20260903-7';
-import { PlateMap, parseEarthquakeFile, parseVolcanoFile, setupEarthquakeTimeline, setupVolcanoTimeline } from './map-app.js?v=20260903-8';
+import { backend, participantCount, participantLabel } from './backend.js?v=20261019-4';
+import { PlateMap, parseEarthquakeFile, parseVolcanoFile, setupEarthquakeTimeline, setupVolcanoTimeline } from './map-app.js?v=20261019-4';
 
 const $ = (selector) => document.querySelector(selector);
 const code = (new URLSearchParams(location.search).get('code') || '').trim().toUpperCase();
@@ -229,6 +229,13 @@ function updatePhase(session) {
   $('#phase-number').textContent = number;
   $('#phase-title').textContent = title;
   $('#phase-guide').textContent = guide;
+  if (session?.participationMode === 'individual') {
+    if (phase === 'compare') {
+      $('#phase-title').textContent = '개별 결과 비교';
+      $('#phase-guide').textContent = '그리기가 마감되었습니다. 전자칠판에서 친구들의 선과 내 선을 비교하세요.';
+    }
+    if (phase === 'reveal') $('#phase-guide').textContent = '내가 그린 선과 실제 판 경계가 어디에서 같고 다른지 찾아보세요.';
+  }
 
   updateExplorationGate(session);
   const editable = phase === 'explore' && Boolean(session?.dataExplorationEnabled) && explorationUnlocked;
@@ -257,17 +264,27 @@ function updatePhase(session) {
 }
 
 function renderGroupButtons() {
+  const individual = currentSession?.participationMode === 'individual';
+  $('#header-group').textContent = individual ? '번호 선택 전' : '모둠 선택 전';
+  $('#join-guide').textContent = individual
+    ? '내 번호를 선택하세요. 각자 한 대의 기기에서 참여합니다. (1~25번)'
+    : '우리 모둠을 선택하세요. 한 모둠은 한 대의 노트북에서 참여합니다.';
+  $('#confidence-label').textContent = individual ? '나의 확신' : '우리 모둠의 확신';
+  if (individual) $('#exploration-guide').textContent = '스스로 생각을 정리한 뒤, 실제 자료 파일을 불러와 시간에 따라 흔적이 쌓이는 모습을 확인하세요.';
+  groupStatus.textContent = individual ? '내 번호를 선택한 뒤 아래 시작 버튼을 눌러 주세요.' : '모둠을 선택한 뒤 아래 시작 버튼을 눌러 주세요.';
+  joinButton.textContent = individual ? '선택한 번호로 시작' : '선택한 모둠으로 시작';
+  groupGrid.classList.toggle('is-individual', individual);
   groupGrid.innerHTML = '';
-  for (let group = 1; group <= 7; group += 1) {
+  for (let group = 1; group <= participantCount(currentSession); group += 1) {
     const button = document.createElement('button');
     button.type = 'button';
     button.dataset.group = String(group);
-    button.textContent = `${group}모둠`;
+    button.textContent = participantLabel(currentSession, group);
     button.addEventListener('click', () => {
       selectedGroup = group;
       groupGrid.querySelectorAll('button').forEach((item) => item.classList.toggle('is-selected', item === button));
       joinButton.disabled = false;
-      groupStatus.textContent = `${group}모둠을 선택했습니다. 아래 시작 버튼을 눌러 주세요.`;
+      groupStatus.textContent = `${participantLabel(currentSession, group)} 선택 완료. 아래 시작 버튼을 눌러 주세요.`;
       groupStatus.classList.remove('is-error');
     });
     groupGrid.append(button);
@@ -276,13 +293,13 @@ function renderGroupButtons() {
 
 async function joinGroup({ silent = false } = {}) {
   if (!selectedGroup) {
-    groupStatus.textContent = '참여할 모둠을 먼저 선택해 주세요.';
+    groupStatus.textContent = currentSession?.participationMode === 'individual' ? '내 번호를 먼저 선택해 주세요.' : '참여할 모둠을 먼저 선택해 주세요.';
     groupStatus.classList.add('is-error');
     return;
   }
   joinButton.disabled = true;
   joinButton.textContent = '참여 확인 중…';
-  groupStatus.textContent = `${selectedGroup}모둠 참여 가능 여부를 확인하고 있습니다…`;
+  groupStatus.textContent = `${participantLabel(currentSession, selectedGroup)} 참여 가능 여부를 확인하고 있습니다…`;
   groupStatus.classList.remove('is-error');
   try {
     groupData = await Promise.race([
@@ -290,8 +307,8 @@ async function joinGroup({ silent = false } = {}) {
       new Promise((_, reject) => setTimeout(() => reject(new Error('참여 확인 시간이 오래 걸리고 있습니다. 인터넷 연결을 확인하고 다시 눌러 주세요.')), 12000))
     ]);
     sessionStorage.setItem(sessionScopedKey('selected-group'), String(selectedGroup));
-    $('#header-group').textContent = `${selectedGroup}모둠`;
-    groupStatus.textContent = `${selectedGroup}모둠으로 참여했습니다.`;
+    $('#header-group').textContent = participantLabel(currentSession, selectedGroup);
+    groupStatus.textContent = `${participantLabel(currentSession, selectedGroup)} 참여를 시작했습니다.`;
     groupDialog.close();
     const draftKey = `${sessionScopedKey('draft')}-${selectedGroup}`;
     migrateLegacyLocalValue(`plate-draft-${code}-${selectedGroup}`, draftKey);
@@ -311,12 +328,12 @@ async function joinGroup({ silent = false } = {}) {
         confidence: document.querySelector('input[name="confidence"]:checked')?.value || '보통'
       }));
     });
-    if (!silent) toast(`${selectedGroup}모둠으로 참여했습니다.`);
+    if (!silent) toast(`${participantLabel(currentSession, selectedGroup)} 참여를 시작했습니다.`);
   } catch (error) {
     sessionStorage.removeItem(sessionScopedKey('selected-group'));
     const message = error?.code === 'permission-denied'
-      ? '모둠 참여 권한을 확인하지 못했습니다. 새로고침한 뒤 다시 시도해 주세요.'
-      : error.message || '모둠 참여에 실패했습니다. 인터넷 연결을 확인해 주세요.';
+      ? '수업 참여 권한을 확인하지 못했습니다. 새로고침한 뒤 다시 시도해 주세요.'
+      : error.message || '수업 참여에 실패했습니다. 인터넷 연결을 확인해 주세요.';
     groupStatus.textContent = message;
     groupStatus.classList.add('is-error');
     toast(message);
@@ -325,13 +342,13 @@ async function joinGroup({ silent = false } = {}) {
       const occupiedButton = groupGrid.querySelector(`[data-group="${selectedGroup}"]`);
       if (occupiedButton) {
         occupiedButton.disabled = true;
-        occupiedButton.textContent = `${selectedGroup}모둠 · 사용 중`;
+        occupiedButton.textContent = `${participantLabel(currentSession, selectedGroup)} · 사용 중`;
         occupiedButton.classList.remove('is-selected');
       }
       selectedGroup = null;
     }
   } finally {
-    joinButton.textContent = '선택한 모둠으로 시작';
+    joinButton.textContent = currentSession?.participationMode === 'individual' ? '선택한 번호로 시작' : '선택한 모둠으로 시작';
     joinButton.disabled = !selectedGroup;
   }
 }
@@ -343,7 +360,7 @@ async function submitBoundary(event) {
     toast(message);
     target?.focus();
   };
-  if (!selectedGroup || !groupData) return reportProblem('모둠 참여 정보를 확인한 뒤 다시 제출해 주세요.');
+  if (!selectedGroup || !groupData) return reportProblem('수업 참여 정보를 확인한 뒤 다시 제출해 주세요.');
   if (currentSession?.phase !== 'explore') return reportProblem('현재는 제출이 마감된 상태입니다. 교사에게 마감 취소를 요청하세요.');
   const records = map.getLineRecords();
   if (!records.length) return reportProblem('지도 왼쪽의 선 그리기로 경계선을 하나 이상 그려 주세요.');
@@ -441,7 +458,7 @@ async function initialize() {
     localStorage.removeItem(legacyGroupStorageKey);
   }
   const rememberedGroup = Number(sessionStorage.getItem(groupStorageKey));
-  if (Number.isInteger(rememberedGroup) && rememberedGroup >= 1 && rememberedGroup <= 7) {
+  if (Number.isInteger(rememberedGroup) && rememberedGroup >= 1 && rememberedGroup <= participantCount(session)) {
     selectedGroup = rememberedGroup;
     const rememberedButton = groupGrid.querySelectorAll('button')[rememberedGroup - 1];
     rememberedButton?.classList.add('is-selected');

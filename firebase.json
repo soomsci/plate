@@ -38,5 +38,14 @@
   },
   "firestore": {
     "rules": "firestore.rules"
+  },
+  "auth": {
+    "providers": {
+      "anonymous": true,
+      "googleSignIn": {
+        "oAuthBrandDisplayName": "경계선",
+        "supportEmail": "xopowok08@samjeong.ms.kr"
+      }
+    }
   }
 }
